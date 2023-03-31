@@ -1,3 +1,6 @@
+.idea
+.vscode
+._target
 /target
 zc
 notebooks
