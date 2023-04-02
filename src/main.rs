@@ -33,33 +33,51 @@ fn exec(command: &str, print_command: Option<bool>) -> String {
     return s;
 }
 
-fn zk0(command: &str) -> String {
+fn get_docker() -> String {
     let docker;
     if Path::new("/usr/bin/docker").exists() {
         docker = "/usr/bin/docker";
     } else {
         docker = "/usr/local/bin/docker";
     }
-    let command = format!("{} exec -i zk0 bash -c '{}' ", docker, command);
-    println!("{}", &command);
-    return exec(&command, Some(true));
+    return String::from(docker);
+}
+
+fn get_nmap() -> String {
+    if Path::new("/opt/homebrew/bin/nmap").exists() {
+        return String::from("/opt/homebrew/bin/nmap");
+    } else {
+        return String::from("/usr/bin/nmap");
+    }
+}
+fn zk0(command: &str) -> String {
+    return exec(
+        &format!("{} exec -i zk0 bash -c '{}'", get_docker(), command),
+        Some(true),
+    );
 }
 
 fn wg0ip() {
     for iface in ifaces::Interface::get_all().unwrap().into_iter() {
-        if iface.name == "wg0" {
+        if (String::from(format!("{:?}", iface.kind)) == "Ipv4") {
             let addr = String::from(format!("{}", iface.addr.unwrap()));
             let v: Vec<&str> = addr.split(":").collect();
-            println!("{}", v[0]);
+            if v[0].starts_with("10.13.13") {
+                println!("{}", v[0]);
+            }
         }
     }
 }
 
+fn add_worker() {
+    let command = format!("{} exec -d zk0 bash -c '/spark'", get_docker());
+    exec(&command, Some(true));
+}
+
 fn nmap() {
-    exec(
-        "nmap -sP 10.13.13.0/24 -oG - | awk '/Up$/{print $2}'",
-        Some(true),
-    );
+    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", get_nmap());
+    let c1 = "awk '/Up$/{print $2}'";
+    exec(&format!("{} | {}", c0, c1), Some(true));
 }
 fn nmap_inf() {
     while true {
@@ -75,23 +93,7 @@ fn zakuro_cli(command: &str, from_docker: bool) -> String {
     }
 }
 
-fn help() {
-    let s = "Usage:  zc [OPTIONS] COMMAND \n
-    A self-sufficient runtime for zakuro \n
-    Commands: \n
-        restart         Restart the zakuro service \n
-        add_worker      Add a worker to the network \n
-        down            Stop the container \n
-        up              Start the container \n
-        logs            Fetch the logs of master node \n
-        pull            Pull the latest zakuro version \n
-        test_network    Test the zakuro network \n
-    To get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/";
-    // io::stdout().write_all(s.as_bytes()).unwrap();
-    println!("{}", s)
-}
-
-fn logs() {
+fn logs(alive: bool) {
     fn clean(c: String) -> String {
         let splits: Vec<&str> = c.split_whitespace().collect();
         return splits.join(" ");
@@ -144,7 +146,8 @@ fn logs() {
     let mut app_completed = 0;
 
     for worker in trs {
-        let wid = get_tag_text(worker.clone(), "a");
+        // let wid = get_tag_text(worker.clone(), "a");
+        let wid = worker.text();
         let worker_info = get_all(worker.clone(), "td");
         dworkers.insert(
             clean(wid),
@@ -243,19 +246,19 @@ fn logs() {
         app_running,
         app_completed
     );
-    println!(
-        "{}\t\t\t{}",
-        "[Nodes]".bold().blue(),
-        exec(
-            "nmap -sP 10.13.13.0/24 -oG - | awk '/Up$/{print $2}'",
-            Some(false),
-        )
-        .replace("\n", "|")
-    );
 
     println!("{}", "====WORKERS====".bold().yellow());
     for (k, v) in &dworkers {
-        println!("{}", k.purple());
+        let mut condition = true;
+        if alive {
+            if v["status"] != "ALIVE" {
+                condition = false;
+            }
+        }
+
+        if condition {
+            println!("{}", k.purple());
+        }
     }
     println!("{}", "====APPS====".bold().yellow());
     for (k, v) in &dapp {
@@ -266,6 +269,45 @@ fn logs() {
         println!("{}", s.purple());
     }
 }
+
+fn nodes() {
+    println!(
+        "{}\t\t\t{}",
+        "[Nodes]".bold().blue(),
+        exec(
+            "/usr/bin/nmap -sP 10.13.13.0/24 -oG - | awk '/Up$/{print $2}'",
+            Some(false),
+        )
+        .replace("\n", "|")
+    );
+}
+
+fn remove_container() {
+    let command = format!("{} stop zk0 && {} rm zk0", get_docker(), get_docker());
+    exec(&command, Some(false));
+}
+
+fn restart() {
+    exec(&format!("{} restart zk0", get_docker()), Some(false));
+}
+
+fn help() {
+    let s = "\nUsage:  zc [OPTIONS] COMMAND
+    \nA self-sufficient runtime for zakuro
+Options:
+      --docker        Execute the commands from zk0
+    \nCommands:
+      wg0ip           Get the IP in the cluster.
+      nmap            Retrieve the list of nodes connected.
+      logs            Fetch the logs of master node
+      restart         Restart the zakuro service
+      add_worker      Add a worker to the network
+      rm              Remove zk0
+\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/";
+    // io::stdout().write_all(s.as_bytes()).unwrap();
+    println!("{}", s)
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     match args.len() {
@@ -276,7 +318,10 @@ fn main() {
                 "nmap" => nmap(),
                 "nmap_inf" => nmap_inf(),
                 "wg0ip" => wg0ip(),
-                "logs" => logs(),
+                "logs" => logs(true),
+                "nodes" => nodes(),
+                "restart" => restart(),
+                "add_worker" => add_worker(),
                 _ => {
                     zakuro_cli(&arg0[..], Path::new("/var/run/docker.sock").exists());
                 }
@@ -286,9 +331,12 @@ fn main() {
             let arg0 = &args[1];
             let arg1 = &args[2];
             match &arg0[..] {
-                "--docker" => {
-                    zakuro_cli(&arg1[..], true);
-                }
+                "--docker" => match &arg1[..] {
+                    "rm" => remove_container(),
+                    _ => {
+                        zakuro_cli(&arg1[..], true);
+                    }
+                },
                 _ => help(),
             }
         }
