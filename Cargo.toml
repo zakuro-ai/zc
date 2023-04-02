@@ -1,0 +1,19 @@
+[package]
+name = "zc2"
+version = "0.0.1-dev"
+edition = "2021"
+license = "MIT"
+description = "ZakuroAI CLI"
+
+[dependencies]
+clone = "0.1.2"
+colored = "2.0.0"
+command-macros = "0.2.9"
+html5ever = "0.22.5"
+ifaces = "0.1.0"
+lazy_static = "1.4.0"
+serde = "1.0.159"
+serde_derive = "1.0.159"
+serde_yaml = "0.9.19"
+soup = "0.5.1"
+toml = "0.7.3"
