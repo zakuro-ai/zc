@@ -1,13 +1,35 @@
+extern crate serde;
+extern crate toml;
+
 use colored::Colorize;
 use html5ever::rcdom::*;
+use serde_derive::{Deserialize, Serialize};
 use soup::prelude::*;
 use std::collections::HashMap;
 use std::env;
+use std::fs;
 use std::io::prelude::*;
-use std::io::{self, Write};
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::rc::Rc;
+#[derive(Deserialize, Serialize)]
+struct Config {
+    virtualization: Virtualization,
+    fs: Fs,
+}
+
+#[derive(Deserialize, Serialize)]
+struct Virtualization {
+    backend: String,
+    container: String,
+    image: String,
+}
+
+#[derive(Deserialize, Serialize)]
+struct Fs {
+    context: String,
+}
 
 fn exec(command: &str, print_command: Option<bool>) -> String {
     let process = match Command::new("bash")
@@ -271,14 +293,12 @@ fn logs(alive: bool) {
 }
 
 fn nodes() {
+    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", get_nmap());
+    let c1 = "awk '/Up$/{print $2}'";
     println!(
         "{}\t\t\t{}",
         "[Nodes]".bold().blue(),
-        exec(
-            "/usr/bin/nmap -sP 10.13.13.0/24 -oG - | awk '/Up$/{print $2}'",
-            Some(false),
-        )
-        .replace("\n", "|")
+        exec(&format!("{} | {}", c0, c1), Some(false)).replace("\n", "|")
     );
 }
 
@@ -295,8 +315,15 @@ fn server_list() {
     zk0("jupyter-server list ");
 }
 fn up() {
+    let cntx = context(None);
     exec(
-        &format!("{} compose up sandbox -d", get_docker()),
+        &format!(
+            "{} stop zk0 && {} rm zk0 && {} compose -f {} up zk0 -d",
+            get_docker(),
+            get_docker(),
+            get_docker(),
+            cntx.fs.context
+        ),
         Some(false),
     );
     server_list();
@@ -315,11 +342,55 @@ Options:
       servers         Return the list of jupyter server runnning 
       add_worker      Add a worker to the network
       rm              Remove zk0
+      context         Change the path to the context
 \nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/";
     // io::stdout().write_all(s.as_bytes()).unwrap();
     println!("{}", s)
 }
 
+fn context(path_opt: Option<&str>) -> Config {
+    let path_env = &format!("{}/.zakuro/env", env::var("HOME").unwrap());
+    let zakuro_env: String = fs::read_to_string(path_env).unwrap();
+    let mut config: Config = toml::from_str(&zakuro_env).unwrap();
+    let toml;
+    match path_opt {
+        Some(path_opt) => {
+            let path_zakuro_yml = &format!(
+                "{}/zakuro.yml",
+                &fs::canonicalize(PathBuf::from(path_opt).to_path_buf())
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+            );
+            if Path::new(&path_env).exists() && Path::new(&path_zakuro_yml).exists() {
+                let zakuro_yaml: String = fs::read_to_string(&path_zakuro_yml).unwrap();
+                for line in zakuro_yaml.split("\n") {
+                    if line.contains("image: zakuroai/") {
+                        let splits: Vec<&str> = line.split("zakuroai/").collect();
+                        let image = splits[1];
+
+                        assert_eq!(config.virtualization.backend, "docker");
+                        assert_eq!(config.virtualization.container, "zk0");
+
+                        config.fs.context = path_zakuro_yml.clone();
+                        config.virtualization.image = format!("zakuroai/{}", image);
+                        toml = toml::to_string(&config).unwrap();
+
+                        std::fs::write(&Path::new(&path_env), &toml).unwrap();
+                        println!("{}", toml);
+                        return config;
+                    }
+                }
+            }
+            return config;
+        }
+        None => {
+            toml = toml::to_string(&config).unwrap();
+            println!("{}", toml);
+            return config;
+        }
+    }
+}
 fn main() {
     let args: Vec<String> = env::args().collect();
     match args.len() {
@@ -336,6 +407,9 @@ fn main() {
                 "restart" => restart(),
                 "servers" => server_list(),
                 "add_worker" => add_worker(),
+                "context" => {
+                    context(None);
+                }
                 _ => {
                     zakuro_cli(&arg0[..], Path::new("/var/run/docker.sock").exists());
                 }
@@ -351,6 +425,9 @@ fn main() {
                         zakuro_cli(&arg1[..], true);
                     }
                 },
+                "context" => {
+                    context(Some(&arg1[..]));
+                }
                 _ => help(),
             }
         }
