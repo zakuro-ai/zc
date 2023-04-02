@@ -291,6 +291,17 @@ fn restart() {
     exec(&format!("{} restart zk0", get_docker()), Some(false));
 }
 
+fn server_list() {
+    zk0("jupyter-server list ");
+}
+fn up() {
+    exec(
+        &format!("{} compose up sandbox -d", get_docker()),
+        Some(false),
+    );
+    server_list();
+}
+
 fn help() {
     let s = "\nUsage:  zc [OPTIONS] COMMAND
     \nA self-sufficient runtime for zakuro
@@ -301,6 +312,7 @@ Options:
       nmap            Retrieve the list of nodes connected.
       logs            Fetch the logs of master node
       restart         Restart the zakuro service
+      servers         Return the list of jupyter server runnning 
       add_worker      Add a worker to the network
       rm              Remove zk0
 \nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/";
@@ -316,11 +328,13 @@ fn main() {
             match &arg0[..] {
                 "help" => help(),
                 "nmap" => nmap(),
+                "up" => up(),
                 "nmap_inf" => nmap_inf(),
                 "wg0ip" => wg0ip(),
                 "logs" => logs(true),
                 "nodes" => nodes(),
                 "restart" => restart(),
+                "servers" => server_list(),
                 "add_worker" => add_worker(),
                 _ => {
                     zakuro_cli(&arg0[..], Path::new("/var/run/docker.sock").exists());
