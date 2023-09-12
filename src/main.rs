@@ -3,106 +3,21 @@ extern crate toml;
 
 use colored::Colorize;
 use html5ever::rcdom::*;
-use serde_derive::{Deserialize, Serialize};
 use soup::prelude::*;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::Write;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use std::rc::Rc;
 use std::str;
+mod common;
 mod envs;
+use common::{dist, exec};
+use envs::docker;
 
-#[derive(Deserialize, Serialize)]
-struct Config {
-    virtualization: Virtualization,
-    fs: Fs,
-}
-
-#[derive(Deserialize, Serialize)]
-struct Virtualization {
-    backend: String,
-    container: String,
-    image: String,
-}
-
-#[derive(Deserialize, Serialize)]
-struct Fs {
-    context: String,
-}
-
-fn exec(command: &str, print_command: Option<bool>) -> String {
-    let process = match Command::new("bash")
-        .arg("-c")
-        .arg(command)
-        .stdout(Stdio::piped())
-        .spawn()
-    {
-        Err(why) => panic!("couldn't spawn {}: {}", command, why),
-        Ok(process) => process,
-    };
-
-    let mut s = String::new();
-    match process.stdout.unwrap().read_to_string(&mut s) {
-        Err(why) => panic!("couldn't read wc stdout: {}", why),
-        Ok(_) => {
-            if print_command.unwrap_or(false) {
-                print!("{}", &s);
-            }
-        }
-    }
-
-    return s;
-}
-
-fn zk0(command: &str) -> String {
-    return exec(
-        &format!("{} exec -i zk0 bash -c '{}'", envs::docker(), command),
-        Some(true),
-    );
-}
-
-fn wg0ip() {
-    for iface in ifaces::Interface::get_all().unwrap().into_iter() {
-        if (String::from(format!("{:?}", iface.kind)) == "Ipv4") {
-            let addr = String::from(format!("{}", iface.addr.unwrap()));
-            let v: Vec<&str> = addr.split(":").collect();
-            if v[0].starts_with("10.13.13") {
-                println!("{}", v[0]);
-            }
-        }
-    }
-}
-
-fn add_worker() {
-    let command = format!("{} exec -d zk0 bash -c '/spark'", envs::docker());
-    exec(&command, Some(true));
-}
-
-fn nmap() {
-    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", envs::nmap());
-    let c1 = "awk '/Up$/{print $2}'";
-    exec(&format!("{} | {}", c0, c1), Some(true));
-}
-fn nmap_inf() {
-    while true {
-        nmap()
-    }
-}
-
-fn zakuro_cli(command: &str, from_docker: bool) -> String {
-    if from_docker {
-        return zk0(&format!("zc {} ", command));
-    } else {
-        return exec(&format!("zc {} ", command), Some(true));
-    }
-}
-
-fn logs(alive: bool) {
+pub fn logs(alive: bool) {
     fn clean(c: String) -> String {
         let splits: Vec<&str> = c.split_whitespace().collect();
         return splits.join(" ");
@@ -279,31 +194,74 @@ fn logs(alive: bool) {
     }
 }
 
+fn zk0(command: &str) -> String {
+    return exec(
+        &format!("{} exec -i zk0 bash -c '{}'", docker(), command),
+        Some(true),
+    );
+}
+
+fn wg0ip() {
+    for iface in ifaces::Interface::get_all().unwrap().into_iter() {
+        if (String::from(format!("{:?}", iface.kind)) == "Ipv4") {
+            let addr = String::from(format!("{}", iface.addr.unwrap()));
+            let v: Vec<&str> = addr.split(":").collect();
+            if v[0].starts_with("10.13.13") {
+                println!("{}", v[0]);
+            }
+        }
+    }
+}
+
+fn add_worker() {
+    let command = format!("{} exec -d zk0 bash -c '/spark'", docker());
+    common::exec(&command, Some(true));
+}
+
+fn nmap() {
+    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", envs::nmap());
+    let c1 = "awk '/Up$/{print $2}'";
+    common::exec(&format!("{} | {}", c0, c1), Some(true));
+}
+fn nmap_inf() {
+    while true {
+        nmap()
+    }
+}
+
+fn zakuro_cli(command: &str, from_docker: bool) -> String {
+    if from_docker {
+        return zk0(&format!("zc {} ", command));
+    } else {
+        return common::exec(&format!("zc {} ", command), Some(true));
+    }
+}
+
 fn nodes() {
     let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", envs::nmap());
     let c1 = "awk '/Up$/{print $2}'";
     println!(
         "{}\t\t\t{}",
         "[Nodes]".bold().blue(),
-        exec(&format!("{} | {}", c0, c1), Some(false)).replace("\n", "|")
+        common::exec(&format!("{} | {}", c0, c1), Some(false)).replace("\n", "|")
     );
 }
 
 fn remove_container() {
-    let command = format!("{} stop zk0 && {} rm zk0", envs::docker(), envs::docker());
-    exec(&command, Some(false));
+    let command = format!("{} stop zk0 && {} rm zk0", docker(), docker());
+    common::exec(&command, Some(false));
 }
 
 fn restart() {
-    exec(&format!("{} restart zk0", envs::docker()), Some(false));
+    common::exec(&format!("{} restart zk0", docker()), Some(false));
 }
 
 fn reboot() {
-    exec(
+    common::exec(
         &format!(
             "cd /home/jcadic/.zakuro/node; {} compose down;{} compose up -d;",
-            envs::docker(),
-            envs::docker()
+            docker(),
+            docker()
         ),
         Some(true),
     );
@@ -315,12 +273,12 @@ fn server_list() {
 fn up() {
     match envs::vars() {
         Ok(vars) => {
-            exec(
+            common::exec(
                 &format!(
                     "cd {} && {} compose down; {} compose up -d",
                     vars.get("ZAKURO_CONTEXT").unwrap(),
-                    envs::docker(),
-                    envs::docker(),
+                    docker(),
+                    docker(),
                 ),
                 Some(false),
             );
@@ -331,12 +289,12 @@ fn up() {
     }
 
     // let cntx = context(None);
-    // exec(
+    // common::exec(
     //     &format!(
     //         "{} stop zk0 && {} rm zk0 && {} compose -f {} up zk0 -d",
-    //         envs::docker(),
-    //         envs::docker(),
-    //         envs::docker(),
+    //         docker(),
+    //         docker(),
+    //         docker(),
     //         cntx.fs.context
     //     ),
     //     Some(false),
@@ -390,21 +348,45 @@ fn context(path: Option<&str>) {
         println!("{}", zakuro_env);
     }
 }
-
+fn pull() {
+    let dist_str = dist();
+    for image in vec!["network", "storage", "compute"] {
+        println!("Updating zakuroai/{} ...", image);
+        common::exec(
+            &format!("{} pull zakuroai/{}:{}", docker(), image, dist_str),
+            Some(false),
+        );
+        common::exec(
+            &format!(
+                "{} tag zakuroai/{}:{} zakuroai/{}:latest",
+                docker(),
+                image,
+                dist_str,
+                image
+            ),
+            Some(false),
+        );
+    }
+}
 fn kill() {
-    let ids = exec(
+    let ids = common::exec(
         &format!(
             "ids=$({} ps --filter 'name=zk0*' -a -q);echo $ids",
-            envs::docker()
+            docker()
         ),
         Some(false),
     );
     if ids.len() > 1 {
         for id in ids.split(" ") {
-            exec(&format!("{} stop {}", envs::docker(), id,), Some(true));
-            exec(&format!("{} rm {}", envs::docker(), id), Some(true));
+            common::exec(&format!("{} stop {}", docker(), id,), Some(true));
+            common::exec(&format!("{} rm {}", docker(), id), Some(true));
         }
     }
+}
+fn launch() {
+    pull();
+    kill();
+    up();
 }
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -415,6 +397,8 @@ fn main() {
                 "help" => help(),
                 "nmap" => nmap(),
                 "up" => up(),
+                "launch" => launch(),
+                "pull" => pull(),
                 "nmap_inf" => nmap_inf(),
                 "wg0ip" => wg0ip(),
                 "logs" => logs(true),

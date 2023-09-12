@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::str;
-
 pub static CONFIG_FILE: &str = "/opt/zakuro/etc/profile.d/zk0.sh";
 
 pub fn docker() -> String {
