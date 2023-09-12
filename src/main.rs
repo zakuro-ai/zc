@@ -8,11 +8,15 @@ use soup::prelude::*;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
+use std::fs::File;
 use std::io::prelude::*;
+use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::rc::Rc;
+use std::str;
+mod envs;
+
 #[derive(Deserialize, Serialize)]
 struct Config {
     virtualization: Virtualization,
@@ -55,26 +59,9 @@ fn exec(command: &str, print_command: Option<bool>) -> String {
     return s;
 }
 
-fn get_docker() -> String {
-    let docker;
-    if Path::new("/usr/bin/docker").exists() {
-        docker = "/usr/bin/docker";
-    } else {
-        docker = "/usr/local/bin/docker";
-    }
-    return String::from(docker);
-}
-
-fn get_nmap() -> String {
-    if Path::new("/opt/homebrew/bin/nmap").exists() {
-        return String::from("/opt/homebrew/bin/nmap");
-    } else {
-        return String::from("/usr/bin/nmap");
-    }
-}
 fn zk0(command: &str) -> String {
     return exec(
-        &format!("{} exec -i zk0 bash -c '{}'", get_docker(), command),
+        &format!("{} exec -i zk0 bash -c '{}'", envs::docker(), command),
         Some(true),
     );
 }
@@ -92,12 +79,12 @@ fn wg0ip() {
 }
 
 fn add_worker() {
-    let command = format!("{} exec -d zk0 bash -c '/spark'", get_docker());
+    let command = format!("{} exec -d zk0 bash -c '/spark'", envs::docker());
     exec(&command, Some(true));
 }
 
 fn nmap() {
-    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", get_nmap());
+    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", envs::nmap());
     let c1 = "awk '/Up$/{print $2}'";
     exec(&format!("{} | {}", c0, c1), Some(true));
 }
@@ -293,7 +280,7 @@ fn logs(alive: bool) {
 }
 
 fn nodes() {
-    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", get_nmap());
+    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", envs::nmap());
     let c1 = "awk '/Up$/{print $2}'";
     println!(
         "{}\t\t\t{}",
@@ -303,30 +290,58 @@ fn nodes() {
 }
 
 fn remove_container() {
-    let command = format!("{} stop zk0 && {} rm zk0", get_docker(), get_docker());
+    let command = format!("{} stop zk0 && {} rm zk0", envs::docker(), envs::docker());
     exec(&command, Some(false));
 }
 
 fn restart() {
-    exec(&format!("{} restart zk0", get_docker()), Some(false));
+    exec(&format!("{} restart zk0", envs::docker()), Some(false));
+}
+
+fn reboot() {
+    exec(
+        &format!(
+            "cd /home/jcadic/.zakuro/node; {} compose down;{} compose up -d;",
+            envs::docker(),
+            envs::docker()
+        ),
+        Some(true),
+    );
 }
 
 fn server_list() {
     zk0("jupyter-server list ");
 }
 fn up() {
-    let cntx = context(None);
-    exec(
-        &format!(
-            "{} stop zk0 && {} rm zk0 && {} compose -f {} up zk0 -d",
-            get_docker(),
-            get_docker(),
-            get_docker(),
-            cntx.fs.context
-        ),
-        Some(false),
-    );
-    server_list();
+    match envs::vars() {
+        Ok(vars) => {
+            exec(
+                &format!(
+                    "cd {} && {} compose down; {} compose up -d",
+                    vars.get("ZAKURO_CONTEXT").unwrap(),
+                    envs::docker(),
+                    envs::docker(),
+                ),
+                Some(false),
+            );
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
+
+    // let cntx = context(None);
+    // exec(
+    //     &format!(
+    //         "{} stop zk0 && {} rm zk0 && {} compose -f {} up zk0 -d",
+    //         envs::docker(),
+    //         envs::docker(),
+    //         envs::docker(),
+    //         cntx.fs.context
+    //     ),
+    //     Some(false),
+    // );
+    // server_list();
 }
 
 fn help() {
@@ -348,46 +363,46 @@ Options:
     println!("{}", s)
 }
 
-fn context(path_opt: Option<&str>) -> Config {
-    let path_env = &format!("{}/.zakuro/env", env::var("HOME").unwrap());
-    let zakuro_env: String = fs::read_to_string(path_env).unwrap();
-    let mut config: Config = toml::from_str(&zakuro_env).unwrap();
-    let toml;
-    match path_opt {
-        Some(path_opt) => {
-            let path_zakuro_yml = &format!(
-                "{}/zakuro.yml",
-                &fs::canonicalize(PathBuf::from(path_opt).to_path_buf())
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-            );
-            if Path::new(&path_env).exists() && Path::new(&path_zakuro_yml).exists() {
-                let zakuro_yaml: String = fs::read_to_string(&path_zakuro_yml).unwrap();
-                for line in zakuro_yaml.split("\n") {
-                    if line.contains("image: zakuroai/") {
-                        let splits: Vec<&str> = line.split("zakuroai/").collect();
-                        let image = splits[1];
-
-                        assert_eq!(config.virtualization.backend, "docker");
-                        assert_eq!(config.virtualization.container, "zk0");
-
-                        config.fs.context = path_zakuro_yml.clone();
-                        config.virtualization.image = format!("zakuroai/{}", image);
-                        toml = toml::to_string(&config).unwrap();
-
-                        std::fs::write(&Path::new(&path_env), &toml).unwrap();
-                        println!("{}", toml);
-                        return config;
-                    }
+fn context(path: Option<&str>) {
+    // Specify the file path
+    let zakuro_env: String = fs::read_to_string(envs::CONFIG_FILE).unwrap();
+    if let Some(path_str) = path {
+        let output_line = format!("export ZAKURO_CONTEXT={}", path_str);
+        let path = Path::new(path_str);
+        if path.exists() {
+            // let path_env = &format!("{}/.zakuro/env", env::var("HOME").unwrap());
+            let mut lines = Vec::new();
+            for line in zakuro_env.split("\n") {
+                if !line.contains("export ZAKURO_CONTEXT") {
+                    lines.push(line);
                 }
             }
-            return config;
+            lines.push(&output_line);
+            // Concatenate the strings into a single string
+            let concatenated = lines.join("\n");
+
+            let mut file = File::create(envs::CONFIG_FILE).unwrap();
+
+            // Write the concatenated string to the file
+            file.write_all(concatenated.as_bytes()).unwrap();
         }
-        None => {
-            toml = toml::to_string(&config).unwrap();
-            println!("{}", toml);
-            return config;
+    } else {
+        println!("{}", zakuro_env);
+    }
+}
+
+fn kill() {
+    let ids = exec(
+        &format!(
+            "ids=$({} ps --filter 'name=zk0*' -a -q);echo $ids",
+            envs::docker()
+        ),
+        Some(false),
+    );
+    if ids.len() > 1 {
+        for id in ids.split(" ") {
+            exec(&format!("{} stop {}", envs::docker(), id,), Some(true));
+            exec(&format!("{} rm {}", envs::docker(), id), Some(true));
         }
     }
 }
@@ -405,9 +420,11 @@ fn main() {
                 "logs" => logs(true),
                 "nodes" => nodes(),
                 "restart" => restart(),
+                "reboot" => reboot(),
                 "servers" => server_list(),
                 "add_worker" => add_worker(),
-                "context" => {
+                "kill" => kill(),
+                "vars" => {
                     context(None);
                 }
                 _ => {
