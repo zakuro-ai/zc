@@ -3,119 +3,19 @@ extern crate toml;
 
 use colored::Colorize;
 use html5ever::rcdom::*;
-use serde_derive::{Deserialize, Serialize};
 use soup::prelude::*;
-use std::collections::HashMap;
-use std::env;
-use std::fs;
-use std::io::prelude::*;
+use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
 use std::rc::Rc;
-#[derive(Deserialize, Serialize)]
-struct Config {
-    virtualization: Virtualization,
-    fs: Fs,
-}
+use std::str;
+use std::{collections::HashMap, fs::File};
+use std::{env, fs};
+mod common;
+mod envs;
+use common::{dist, exec};
+use envs::docker;
 
-#[derive(Deserialize, Serialize)]
-struct Virtualization {
-    backend: String,
-    container: String,
-    image: String,
-}
-
-#[derive(Deserialize, Serialize)]
-struct Fs {
-    context: String,
-}
-
-fn exec(command: &str, print_command: Option<bool>) -> String {
-    let process = match Command::new("bash")
-        .arg("-c")
-        .arg(command)
-        .stdout(Stdio::piped())
-        .spawn()
-    {
-        Err(why) => panic!("couldn't spawn {}: {}", command, why),
-        Ok(process) => process,
-    };
-
-    let mut s = String::new();
-    match process.stdout.unwrap().read_to_string(&mut s) {
-        Err(why) => panic!("couldn't read wc stdout: {}", why),
-        Ok(_) => {
-            if print_command.unwrap_or(false) {
-                print!("{}", &s);
-            }
-        }
-    }
-
-    return s;
-}
-
-fn get_docker() -> String {
-    let docker;
-    if Path::new("/usr/bin/docker").exists() {
-        docker = "/usr/bin/docker";
-    } else {
-        docker = "/usr/local/bin/docker";
-    }
-    return String::from(docker);
-}
-
-fn get_nmap() -> String {
-    if Path::new("/opt/homebrew/bin/nmap").exists() {
-        return String::from("/opt/homebrew/bin/nmap");
-    } else {
-        return String::from("/usr/bin/nmap");
-    }
-}
-fn zk0(command: &str) -> String {
-    return exec(
-        &format!("{} exec -i zk0 bash -c '{}'", get_docker(), command),
-        Some(true),
-    );
-}
-
-fn wg0ip() {
-    for iface in ifaces::Interface::get_all().unwrap().into_iter() {
-        if (String::from(format!("{:?}", iface.kind)) == "Ipv4") {
-            let addr = String::from(format!("{}", iface.addr.unwrap()));
-            let v: Vec<&str> = addr.split(":").collect();
-            if v[0].starts_with("10.13.13") {
-                println!("{}", v[0]);
-            }
-        }
-    }
-}
-
-fn add_worker() {
-    let command = format!("{} exec -d zk0 bash -c '/spark'", get_docker());
-    exec(&command, Some(true));
-}
-
-fn nmap() {
-    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", get_nmap());
-    let c1 = "awk '/Up$/{print $2}'";
-    exec(&format!("{} | {}", c0, c1), Some(true));
-}
-fn nmap_inf() {
-    while true {
-        nmap()
-    }
-}
-
-fn zakuro_cli(command: &str, from_docker: bool) -> String {
-    if from_docker {
-        return zk0(&format!("zc {} ", command));
-    } else {
-        return exec(&format!("zc {} ", command), Some(true));
-    }
-}
-
-fn logs(alive: bool) {
+pub fn logs(alive: bool) {
     fn clean(c: String) -> String {
         let splits: Vec<&str> = c.split_whitespace().collect();
         return splits.join(" ");
@@ -292,41 +192,239 @@ fn logs(alive: bool) {
     }
 }
 
+fn zk0(command: &str) -> String {
+    return exec(
+        &format!("{} exec -i zk0 bash -c '{}'", docker(), command),
+        Some(true),
+    );
+}
+
+fn wg0ip() {
+    for iface in ifaces::Interface::get_all().unwrap().into_iter() {
+        if (String::from(format!("{:?}", iface.kind)) == "Ipv4") {
+            let addr = String::from(format!("{}", iface.addr.unwrap()));
+            let v: Vec<&str> = addr.split(":").collect();
+            if v[0].starts_with("10.13.13") {
+                println!("{}", v[0]);
+            }
+        }
+    }
+}
+
+fn add_worker() {
+    let command = format!("{} exec -d zk0 bash -c '/spark'", docker());
+    common::exec(&command, Some(true));
+}
+
+fn nmap() {
+    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", envs::nmap());
+    let c1 = "awk '/Up$/{print $2}'";
+    common::exec(&format!("{} | {}", c0, c1), Some(true));
+}
+
+fn nmap_inf() {
+    while true {
+        nmap()
+    }
+}
+fn zakuro_cli(command: &str, from_docker: bool) -> String {
+    if from_docker {
+        return zk0(&format!("zc {} ", command));
+    } else {
+        return common::exec(&format!("zc {} ", command), Some(true));
+    }
+}
+
 fn nodes() {
-    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", get_nmap());
+    let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", envs::nmap());
     let c1 = "awk '/Up$/{print $2}'";
     println!(
         "{}\t\t\t{}",
         "[Nodes]".bold().blue(),
-        exec(&format!("{} | {}", c0, c1), Some(false)).replace("\n", "|")
+        common::exec(&format!("{} | {}", c0, c1), Some(false)).replace("\n", "|")
     );
 }
 
 fn remove_container() {
-    let command = format!("{} stop zk0 && {} rm zk0", get_docker(), get_docker());
-    exec(&command, Some(false));
-}
-
-fn restart() {
-    exec(&format!("{} restart zk0", get_docker()), Some(false));
+    let command = format!("{} stop zk0 && {} rm zk0", docker(), docker());
+    common::exec(&command, Some(false));
 }
 
 fn server_list() {
     zk0("jupyter-server list ");
 }
-fn up() {
-    let cntx = context(None);
-    exec(
+fn restart() {
+    match envs::vars() {
+        Ok(vars) => {
+            common::exec(
+                &format!(
+                    "cd {} && {} compose down; {} compose up -d",
+                    vars.get("ZAKURO_CONTEXT").unwrap(),
+                    docker(),
+                    docker(),
+                ),
+                Some(false),
+            );
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
+}
+
+fn context(path: Option<&str>) {
+    match envs::vars() {
+        Ok(vars) => {
+            // Specify the file path
+            let zakuro_env: String = fs::read_to_string(envs::CONFIG_FILE).unwrap();
+            if let Some(path_str) = path {
+                let output_line = format!("export ZAKURO_CONTEXT={}", path_str);
+                let path = Path::new(path_str);
+                if path.exists() {
+                    // let path_env = &format!("{}/.zakuro/env", env::var("HOME").unwrap());
+                    let mut lines = Vec::new();
+                    for line in zakuro_env.split("\n") {
+                        if !line.contains("export ZAKURO_CONTEXT") {
+                            lines.push(line);
+                        }
+                    }
+                    lines.push(&output_line);
+                    // Concatenate the strings into a single string
+                    let concatenated = lines.join("\n");
+
+                    let mut file = File::create(envs::CONFIG_FILE).unwrap();
+
+                    // Write the concatenated string to the file
+                    file.write_all(concatenated.as_bytes()).unwrap();
+                }
+            } else {
+                println!("{:?}", vars);
+            }
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
+}
+fn pull() {
+    let dist_str = dist();
+    for image in vec!["network", "storage", "compute"] {
+        println!("Updating zakuroai/{} ...", image);
+        common::exec(
+            &format!("{} pull zakuroai/{}:{}", docker(), image, dist_str),
+            Some(false),
+        );
+        common::exec(
+            &format!(
+                "{} tag zakuroai/{}:{} zakuroai/{}:latest",
+                docker(),
+                image,
+                dist_str,
+                image
+            ),
+            Some(false),
+        );
+    }
+}
+
+fn download_conf() {
+    match envs::vars() {
+        Ok(vars) => {
+            let zakuro_root = vars.get("ZAKURO_HOME").unwrap();
+            // println!("{}", zakuro_root);
+            //Create dirs
+            for image in vec![
+                "config", "network", "storage", "compute", "node", "hub", "lib", "logs", "bin",
+            ] {
+                let command = &format!("mkdir -p {}/{}", zakuro_root, image);
+                // println!("{}", command);
+                common::exec(command, Some(true));
+            }
+            //Download confs
+            for image in vec!["network", "storage", "compute", "node", "hub"] {
+                common::exec(
+                    &format!(
+                        "wget -q 'http://get.zakuro.ai/zk0?config={}' -O {}/{}/{}-zakuro.yml",
+                        image, zakuro_root, image, image
+                    ),
+                    Some(true),
+                );
+                common::exec(
+                    &format!(
+                        "wget -q 'http://get.zakuro.ai/zk0?config={}_env' -O {}/{}/.env",
+                        image, zakuro_root, image
+                    ),
+                    Some(true),
+                );
+            }
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
+}
+
+fn download_auth() {
+    match envs::vars() {
+        Ok(vars) => {
+            let zakuro_root = vars.get("ZAKURO_HOME").unwrap();
+            let zakuro_auth = vars.get("ZAKURO_AUTH").unwrap();
+            let command = &format!(
+                "curl -s --location --request GET 'https://get.zakuro.ai/profile' \
+            --header 'Content-Type: application/json' \
+            --data '{{\"pkey\": \"{}\"}}' > {}/config/wg0.conf",
+                zakuro_auth, zakuro_root
+            );
+
+            let result = common::exec(command, Some(false));
+            println!("{}", result);
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
+}
+fn kill() {
+    let ids = common::exec(
         &format!(
-            "{} stop zk0 && {} rm zk0 && {} compose -f {} up zk0 -d",
-            get_docker(),
-            get_docker(),
-            get_docker(),
-            cntx.fs.context
+            "ids=$({} ps --filter 'name=zk0*' -a -q);echo $ids",
+            docker()
         ),
         Some(false),
     );
-    server_list();
+    if ids.len() > 1 {
+        for id in ids.split(" ") {
+            common::exec(&format!("{} stop {}", docker(), id,), Some(true));
+            common::exec(&format!("{} rm {}", docker(), id), Some(true));
+        }
+    }
+}
+
+fn ps() {
+    common::exec(
+        &format!("{} ps --filter 'name=zk0*' -a", docker()),
+        Some(true),
+    );
+}
+fn images() {
+    common::exec(
+        &format!(
+            "{} images --filter \"label=maintainer=dev@zakuro.ai\" -a",
+            docker()
+        ),
+        Some(true),
+    );
+}
+
+fn launch() {
+    pull();
+    kill();
+    restart();
+}
+fn setup() {
+    download_auth();
+    download_conf();
+    launch();
 }
 
 fn help() {
@@ -335,62 +433,19 @@ fn help() {
 Options:
       --docker        Execute the commands from zk0
     \nCommands:
+      pull            Pull updated images.
+      images          List zakuro images built on the machine.
+      ps              List current running zakuro containers.
+      context <path>  Set new zakuro context.
+      kill            Remove current running zakuro containers.
+      restart         Restart the containers with updated images.
       wg0ip           Get the IP in the cluster.
-      nmap            Retrieve the list of nodes connected.
-      logs            Fetch the logs of master node
-      restart         Restart the zakuro service
-      servers         Return the list of jupyter server runnning 
-      add_worker      Add a worker to the network
-      rm              Remove zk0
-      context         Change the path to the context
+    
 \nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/";
     // io::stdout().write_all(s.as_bytes()).unwrap();
     println!("{}", s)
 }
 
-fn context(path_opt: Option<&str>) -> Config {
-    let path_env = &format!("{}/.zakuro/env", env::var("HOME").unwrap());
-    let zakuro_env: String = fs::read_to_string(path_env).unwrap();
-    let mut config: Config = toml::from_str(&zakuro_env).unwrap();
-    let toml;
-    match path_opt {
-        Some(path_opt) => {
-            let path_zakuro_yml = &format!(
-                "{}/zakuro.yml",
-                &fs::canonicalize(PathBuf::from(path_opt).to_path_buf())
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-            );
-            if Path::new(&path_env).exists() && Path::new(&path_zakuro_yml).exists() {
-                let zakuro_yaml: String = fs::read_to_string(&path_zakuro_yml).unwrap();
-                for line in zakuro_yaml.split("\n") {
-                    if line.contains("image: zakuroai/") {
-                        let splits: Vec<&str> = line.split("zakuroai/").collect();
-                        let image = splits[1];
-
-                        assert_eq!(config.virtualization.backend, "docker");
-                        assert_eq!(config.virtualization.container, "zk0");
-
-                        config.fs.context = path_zakuro_yml.clone();
-                        config.virtualization.image = format!("zakuroai/{}", image);
-                        toml = toml::to_string(&config).unwrap();
-
-                        std::fs::write(&Path::new(&path_env), &toml).unwrap();
-                        println!("{}", toml);
-                        return config;
-                    }
-                }
-            }
-            return config;
-        }
-        None => {
-            toml = toml::to_string(&config).unwrap();
-            println!("{}", toml);
-            return config;
-        }
-    }
-}
 fn main() {
     let args: Vec<String> = env::args().collect();
     match args.len() {
@@ -398,8 +453,14 @@ fn main() {
             let arg0 = &args[1];
             match &arg0[..] {
                 "help" => help(),
+                "ps" => ps(),
+                "images" => images(),
                 "nmap" => nmap(),
-                "up" => up(),
+                "launch" => launch(),
+                "download_conf" => download_conf(),
+                "download_auth" => download_auth(),
+                "setup" => setup(),
+                "pull" => pull(),
                 "nmap_inf" => nmap_inf(),
                 "wg0ip" => wg0ip(),
                 "logs" => logs(true),
@@ -407,7 +468,8 @@ fn main() {
                 "restart" => restart(),
                 "servers" => server_list(),
                 "add_worker" => add_worker(),
-                "context" => {
+                "kill" => kill(),
+                "vars" => {
                     context(None);
                 }
                 _ => {
