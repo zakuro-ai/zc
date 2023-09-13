@@ -221,12 +221,12 @@ fn nmap() {
     let c1 = "awk '/Up$/{print $2}'";
     common::exec(&format!("{} | {}", c0, c1), Some(true));
 }
+
 fn nmap_inf() {
     while true {
         nmap()
     }
 }
-
 fn zakuro_cli(command: &str, from_docker: bool) -> String {
     if from_docker {
         return zk0(&format!("zc {} ", command));
@@ -250,25 +250,10 @@ fn remove_container() {
     common::exec(&command, Some(false));
 }
 
-fn restart() {
-    common::exec(&format!("{} restart zk0", docker()), Some(false));
-}
-
-fn reboot() {
-    common::exec(
-        &format!(
-            "cd /home/jcadic/.zakuro/node; {} compose down;{} compose up -d;",
-            docker(),
-            docker()
-        ),
-        Some(true),
-    );
-}
-
 fn server_list() {
     zk0("jupyter-server list ");
 }
-fn up() {
+fn restart() {
     match envs::vars() {
         Ok(vars) => {
             common::exec(
@@ -285,38 +270,6 @@ fn up() {
             eprintln!("Error: {}", err);
         }
     }
-
-    // let cntx = context(None);
-    // common::exec(
-    //     &format!(
-    //         "{} stop zk0 && {} rm zk0 && {} compose -f {} up zk0 -d",
-    //         docker(),
-    //         docker(),
-    //         docker(),
-    //         cntx.fs.context
-    //     ),
-    //     Some(false),
-    // );
-    // server_list();
-}
-
-fn help() {
-    let s = "\nUsage:  zc [OPTIONS] COMMAND
-    \nA self-sufficient runtime for zakuro
-Options:
-      --docker        Execute the commands from zk0
-    \nCommands:
-      wg0ip           Get the IP in the cluster.
-      nmap            Retrieve the list of nodes connected.
-      logs            Fetch the logs of master node
-      restart         Restart the zakuro service
-      servers         Return the list of jupyter server runnning 
-      add_worker      Add a worker to the network
-      rm              Remove zk0
-      context         Change the path to the context
-\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/";
-    // io::stdout().write_all(s.as_bytes()).unwrap();
-    println!("{}", s)
 }
 
 fn context(path: Option<&str>) {
@@ -446,16 +399,53 @@ fn kill() {
         }
     }
 }
+
+fn ps() {
+    common::exec(
+        &format!("{} ps --filter 'name=zk0*' -a", docker()),
+        Some(true),
+    );
+}
+fn images() {
+    common::exec(
+        &format!(
+            "{} images --filter \"label=maintainer=dev@zakuro.ai\" -a",
+            docker()
+        ),
+        Some(true),
+    );
+}
+
 fn launch() {
     pull();
     kill();
-    up();
+    restart();
 }
 fn setup() {
     download_auth();
     download_conf();
     launch();
 }
+
+fn help() {
+    let s = "\nUsage:  zc [OPTIONS] COMMAND
+    \nA self-sufficient runtime for zakuro
+Options:
+      --docker        Execute the commands from zk0
+    \nCommands:
+      pull            Pull updated images.
+      images          List zakuro images built on the machine.
+      ps              List current running zakuro containers.
+      context <path>  Set new zakuro context.
+      kill            Remove current running zakuro containers.
+      restart         Restart the containers with updated images.
+      wg0ip           Get the IP in the cluster.
+    
+\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/";
+    // io::stdout().write_all(s.as_bytes()).unwrap();
+    println!("{}", s)
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     match args.len() {
@@ -463,8 +453,9 @@ fn main() {
             let arg0 = &args[1];
             match &arg0[..] {
                 "help" => help(),
+                "ps" => ps(),
+                "images" => images(),
                 "nmap" => nmap(),
-                "up" => up(),
                 "launch" => launch(),
                 "download_conf" => download_conf(),
                 "download_auth" => download_auth(),
@@ -475,7 +466,6 @@ fn main() {
                 "logs" => logs(true),
                 "nodes" => nodes(),
                 "restart" => restart(),
-                "reboot" => reboot(),
                 "servers" => server_list(),
                 "add_worker" => add_worker(),
                 "kill" => kill(),
