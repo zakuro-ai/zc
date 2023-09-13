@@ -368,6 +368,44 @@ fn pull() {
         );
     }
 }
+
+fn download_conf() {
+    match envs::vars() {
+        Ok(vars) => {
+            let zakuro_root = vars.get("ZAKURO_HOME").unwrap();
+            // println!("{}", zakuro_root);
+            //Create dirs
+            for image in vec![
+                "network", "storage", "compute", "node", "hub", "lib", "logs", "bin",
+            ] {
+                let command = &format!("mkdir -p {}/{}", zakuro_root, image);
+                // println!("{}", command);
+                common::exec(command, Some(true));
+            }
+            //Download confs
+            for image in vec!["network", "storage", "compute", "node", "hub"] {
+                common::exec(
+                    &format!(
+                        "wget -q 'http://get.zakuro.ai/zk0?config={}' -O {}/{}/{}-zakuro.yml",
+                        image, zakuro_root, image, image
+                    ),
+                    Some(true),
+                );
+                common::exec(
+                    &format!(
+                        "wget -q 'http://get.zakuro.ai/zk0?config={}_env' -O {}/{}/.env",
+                        image, zakuro_root, image
+                    ),
+                    Some(true),
+                );
+            }
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
+}
+
 fn kill() {
     let ids = common::exec(
         &format!(
@@ -398,6 +436,7 @@ fn main() {
                 "nmap" => nmap(),
                 "up" => up(),
                 "launch" => launch(),
+                "download_conf" => download_conf(),
                 "pull" => pull(),
                 "nmap_inf" => nmap_inf(),
                 "wg0ip" => wg0ip(),
