@@ -29,7 +29,7 @@ pub fn vars() -> Result<HashMap<String, String>, std::io::Error> {
     let mut variables = HashMap::new();
 
     if !Path::new(CONFIG_FILE).exists() {
-        let command = &format!("mkdir -p {}", CONFIG_DIR);
+        let command = &format!("sudo mkdir -p {}", CONFIG_DIR);
         common::exec(command, Some(false));
         let command = &format!("wget -q 'http://get.zakuro.ai/env' -O {}", CONFIG_FILE);
         common::exec(command, Some(false));
