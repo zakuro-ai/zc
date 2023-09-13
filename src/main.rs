@@ -4,12 +4,12 @@ extern crate toml;
 use colored::Colorize;
 use html5ever::rcdom::*;
 use soup::prelude::*;
-use std::{env, fs};
 use std::io::Write;
 use std::path::Path;
 use std::rc::Rc;
 use std::str;
 use std::{collections::HashMap, fs::File};
+use std::{env, fs};
 mod common;
 mod envs;
 use common::{dist, exec};
@@ -381,7 +381,7 @@ fn download_conf() {
             // println!("{}", zakuro_root);
             //Create dirs
             for image in vec![
-                "network", "storage", "compute", "node", "hub", "lib", "logs", "bin",
+                "config", "network", "storage", "compute", "node", "hub", "lib", "logs", "bin",
             ] {
                 let command = &format!("mkdir -p {}/{}", zakuro_root, image);
                 // println!("{}", command);
@@ -411,6 +411,26 @@ fn download_conf() {
     }
 }
 
+fn download_auth() {
+    match envs::vars() {
+        Ok(vars) => {
+            let zakuro_root = vars.get("ZAKURO_HOME").unwrap();
+            let zakuro_auth = vars.get("ZAKURO_AUTH").unwrap();
+            let command = &format!(
+                "curl -s --location --request GET 'https://get.zakuro.ai/profile' \
+            --header 'Content-Type: application/json' \
+            --data '{{\"pkey\": \"{}\"}}' > {}/config/wg0.conf",
+                zakuro_auth, zakuro_root
+            );
+
+            let result = common::exec(command, Some(false));
+            println!("{}", result);
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
+}
 fn kill() {
     let ids = common::exec(
         &format!(
@@ -431,6 +451,11 @@ fn launch() {
     kill();
     up();
 }
+fn setup() {
+    download_auth();
+    download_conf();
+    launch();
+}
 fn main() {
     let args: Vec<String> = env::args().collect();
     match args.len() {
@@ -442,6 +467,8 @@ fn main() {
                 "up" => up(),
                 "launch" => launch(),
                 "download_conf" => download_conf(),
+                "download_auth" => download_auth(),
+                "setup" => setup(),
                 "pull" => pull(),
                 "nmap_inf" => nmap_inf(),
                 "wg0ip" => wg0ip(),
