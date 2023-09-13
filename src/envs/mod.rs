@@ -1,7 +1,9 @@
+use crate::common;
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::str;
+
 pub static CONFIG_FILE: &str = "/opt/zakuro/etc/profile.d/zk0.sh";
 pub static CONFIG_DIR: &str = "/opt/zakuro/etc/profile.d";
 
@@ -22,38 +24,25 @@ pub fn nmap() -> String {
         return String::from("/usr/bin/nmap");
     }
 }
+
 pub fn vars() -> Result<HashMap<String, String>, std::io::Error> {
-    if !Path::new(CONFIG_FILE).exists() {
-        let mut command = Command::new("bash");
-        let command_sh = &format!("mkdir -p {}", CONFIG_DIR);
-        command.arg("-c").arg(command_sh);
-        command.stdout(Stdio::piped());
-
-        let mut command = Command::new("bash");
-        let command_sh = &format!("wget -q 'http://get.zakuro.ai/env' -O {}", CONFIG_FILE);
-        command.arg("-c").arg(command_sh);
-        command.stdout(Stdio::piped());
-    }
-
-    let mut command = Command::new("bash");
-    command
-        .arg("-c")
-        .arg(format!("source {} && env", CONFIG_FILE));
-
-    // Ensure we capture the command's stdout
-    command.stdout(Stdio::piped());
-
-    let output = command.spawn()?.wait_with_output()?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
     let mut variables = HashMap::new();
 
-    for line in stdout.lines() {
+    if !Path::new(CONFIG_FILE).exists() {
+        let command = &format!("mkdir -p {}", CONFIG_DIR);
+        common::exec(command, Some(false));
+        let command = &format!("wget -q 'http://get.zakuro.ai/env' -O {}", CONFIG_FILE);
+        common::exec(command, Some(false));
+    }
+
+    let command = &format!("source {} && env", CONFIG_FILE);
+    let lines = common::exec(command, Some(false));
+
+    for line in lines.split("\n") {
         if let Some((key, value)) = parse_exported_variable(line) {
             variables.insert(key.to_string(), value.to_string());
         }
     }
-
     Ok(variables)
 }
 

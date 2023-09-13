@@ -4,14 +4,12 @@ extern crate toml;
 use colored::Colorize;
 use html5ever::rcdom::*;
 use soup::prelude::*;
-use std::collections::HashMap;
-use std::env;
-use std::fs;
-use std::fs::File;
+use std::{env, fs};
 use std::io::Write;
 use std::path::Path;
 use std::rc::Rc;
 use std::str;
+use std::{collections::HashMap, fs::File};
 mod common;
 mod envs;
 use common::{dist, exec};
@@ -322,30 +320,37 @@ Options:
 }
 
 fn context(path: Option<&str>) {
-    // Specify the file path
-    let zakuro_env: String = fs::read_to_string(envs::CONFIG_FILE).unwrap();
-    if let Some(path_str) = path {
-        let output_line = format!("export ZAKURO_CONTEXT={}", path_str);
-        let path = Path::new(path_str);
-        if path.exists() {
-            // let path_env = &format!("{}/.zakuro/env", env::var("HOME").unwrap());
-            let mut lines = Vec::new();
-            for line in zakuro_env.split("\n") {
-                if !line.contains("export ZAKURO_CONTEXT") {
-                    lines.push(line);
+    match envs::vars() {
+        Ok(vars) => {
+            // Specify the file path
+            let zakuro_env: String = fs::read_to_string(envs::CONFIG_FILE).unwrap();
+            if let Some(path_str) = path {
+                let output_line = format!("export ZAKURO_CONTEXT={}", path_str);
+                let path = Path::new(path_str);
+                if path.exists() {
+                    // let path_env = &format!("{}/.zakuro/env", env::var("HOME").unwrap());
+                    let mut lines = Vec::new();
+                    for line in zakuro_env.split("\n") {
+                        if !line.contains("export ZAKURO_CONTEXT") {
+                            lines.push(line);
+                        }
+                    }
+                    lines.push(&output_line);
+                    // Concatenate the strings into a single string
+                    let concatenated = lines.join("\n");
+
+                    let mut file = File::create(envs::CONFIG_FILE).unwrap();
+
+                    // Write the concatenated string to the file
+                    file.write_all(concatenated.as_bytes()).unwrap();
                 }
+            } else {
+                println!("{:?}", vars);
             }
-            lines.push(&output_line);
-            // Concatenate the strings into a single string
-            let concatenated = lines.join("\n");
-
-            let mut file = File::create(envs::CONFIG_FILE).unwrap();
-
-            // Write the concatenated string to the file
-            file.write_all(concatenated.as_bytes()).unwrap();
         }
-    } else {
-        println!("{}", zakuro_env);
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
     }
 }
 fn pull() {
