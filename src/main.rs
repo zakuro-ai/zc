@@ -320,12 +320,17 @@ fn pull() {
     let dist_str = dist();
     for image in vec!["network", "storage", "compute"] {
         common::command(
-            &format!("docker pull zakuroai/{}:{} && docker tag zakuroai/{}:{} zakuroai/{}:latest", 
+            &format!("docker pull zakuroai/{}:{} && \
+            docker tag zakuroai/{}:{} zakuroai/{}:latest && \
+            docker rmi zakuroai/{}:{}", 
             image,
             dist_str,
             image,
             dist_str,
-            image),
+            image,
+            image,
+            dist_str
+        ),
         );
     }
 }
