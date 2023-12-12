@@ -268,7 +268,8 @@ fn restart() {
         Ok(vars) => {
             common::exec(
                 &format!(
-                    "cd {} && {} compose down; {} compose up -d",
+                    ". {}; cd {} && {} compose down && {} compose up -d",
+                    envs::CONFIG_FILE,
                     vars.get("ZAKURO_CONTEXT").unwrap(),
                     docker(),
                     docker(),
@@ -410,15 +411,13 @@ fn kill() {
 
 fn ps() {
     common::exec(
-        &format!("{} ps --filter 'name=zk0*' --filter \"label=maintainer=dev@zakuro.ai\" -a", docker()),
+        &format!("{} ps --filter --filter \"label=maintainer=dev@zakuro.ai\" -a", docker()),
         Some(true),
     );
 }
 
 fn update() {
-    common::exec("curl https://get.zakuro.ai | sh",
-        Some(true),
-    );
+    common::command("curl https://get.zakuro.ai/zc | sh");
 }
 
 
@@ -457,6 +456,24 @@ fn version()
 fn rmi(){
     kill();
     common::command("docker rmi -f $(docker images --filter \"label=maintainer=dev@zakuro.ai\" -a -q)");
+}
+
+fn push(image: Option<&str>){
+    if let (Some(image_value),) = (
+        image,
+    ) {
+
+    common::command(&format!(
+        "docker tag zakuroai/{}:latest zakuroai/{}:{} && docker push zakuroai/{}:{} && docker rmi zakuroai/{}:{}", 
+        image_value, 
+        image_value, 
+        dist(),
+        image_value, 
+        dist(),
+        image_value, 
+        dist()
+    ));
+    }
 }
 fn help() {
 
@@ -537,7 +554,9 @@ fn main() {
                         zk0(&arg1[..]);
                     }
                 },
-                
+                "push" => {
+                    push(Some(&arg1[..]));
+                },
                 "context" => {
                     context(Some(&arg1[..]));
                 }
