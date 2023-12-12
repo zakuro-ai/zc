@@ -473,7 +473,10 @@ fn version()
     if let (Some(short_hash),) = (
         built_info::GIT_COMMIT_HASH_SHORT,
     ) {
-    println!("zc version {}, build {}", built_info::PKG_VERSION, short_hash);
+
+        let built_time = built::util::strptime(built_info::BUILT_TIME_UTC);
+        println!("zc version {}, build {} on {}", built_info::PKG_VERSION, short_hash, built_time.with_timezone(&built::chrono::offset::Local),
+);
 }
 }
 fn help() {
