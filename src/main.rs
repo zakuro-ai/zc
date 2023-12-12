@@ -486,6 +486,9 @@ fn build(image: Option<Vec<String>>){
         if _d=="arm64"{
             d = "aarch64"
         }
+        else if _d=="x86_64"{
+            d ="amd64"
+        }
         else{
             d=&_d;
         }        
