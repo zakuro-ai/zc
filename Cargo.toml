@@ -17,3 +17,7 @@ serde_derive = "1.0.159"
 serde_yaml = "0.9.19"
 soup = "0.5.1"
 toml = "0.8.0"
+built = { version = "0.7", features = ["chrono", "semver"] }
+
+[build-dependencies]
+built = { version = "0.7", features = ["cargo-lock", "dependency-tree", "git2", "chrono", "semver"] }
