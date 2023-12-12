@@ -234,7 +234,7 @@ fn zk0(command: &str) -> String {
 
 fn wg0ip() {
     for iface in ifaces::Interface::get_all().unwrap().into_iter() {
-        if (String::from(format!("{:?}", iface.kind)) == "Ipv4") {
+        if String::from(format!("{:?}", iface.kind)) == "Ipv4" {
             let addr = String::from(format!("{}", iface.addr.unwrap()));
             let v: Vec<&str> = addr.split(":").collect();
             if v[0].starts_with("10.13.13") {
@@ -461,7 +461,6 @@ fn launch() {
     pull();
     kill();
     restart();
-    connect();
 }
 fn setup() {
     download_auth();
