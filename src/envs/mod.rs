@@ -31,6 +31,7 @@ pub fn vars() -> Result<HashMap<String, String>, std::io::Error> {
     if !Path::new(CONFIG_FILE).exists() {
         for command in vec![
             &format!("sudo mkdir -p {}", CONFIG_DIR),
+            &format!("sudo chown -R $UID {}", CONFIG_DIR),
             &format!("wget -q 'http://get.zakuro.ai/env' -O {}", CONFIG_FILE),
         ] {
             common::exec(command, Some(true));
