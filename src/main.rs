@@ -523,6 +523,9 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
     match args.len() {
+        1 => {
+            help();
+        }
         2 => {
             let arg0 = &args[1];
             match &arg0[..] {
