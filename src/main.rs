@@ -481,9 +481,16 @@ fn build(image: Option<Vec<String>>){
         image,
     ) {
         let truncated_vector: Vec<String> = image_value.into_iter().skip(2).collect();
-
+        let _d = dist();
+        let d;
+        if _d=="arm64"{
+            d = "aarch64"
+        }
+        else{
+            d=&_d;
+        }        
         let s: String = truncated_vector.join(" ");
-        common::command(&format!("BUILDARCH=aarch64 docker compose build {}", s));
+        common::command(&format!("BUILDARCH={} docker compose build {}", d, s));
     }
 
 }
