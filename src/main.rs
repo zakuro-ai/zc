@@ -22,30 +22,7 @@ mod built_info {
 }
 
 fn connect() {
-    // Replace "your_container_id" with the actual ID or name of your Docker container
-    let container_id = "zk0";
-
-    // Run the "docker exec" command to enter the container interactively with a TTY
-    let mut child = Command::new("docker")
-        .arg("exec")
-        .arg("-it")
-        .arg("-e")
-        .arg("TERM=xterm-256color") // Set the terminal type if needed
-        .arg(container_id)
-        .arg("/bin/bash") // Change this to the desired shell inside the container
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn();
-
-    // Check if the command execution was successful
-    match child {
-        Ok(mut child) => {
-            // Wait for the child process to finish (you can remove this if you want to keep it running)
-            let status = child.wait();
-        }
-        Err(e) => eprintln!("Error spawning command: {}", e),
-    }
+    common::command("docker exec -it -e TERM=xterm-256color zk0 /bin/bash")
 }
 
 pub fn logs(alive: bool) {
@@ -342,20 +319,13 @@ fn context(path: Option<&str>) {
 fn pull() {
     let dist_str = dist();
     for image in vec!["network", "storage", "compute"] {
-        println!("Updating zakuroai/{} ...", image);
-        common::exec(
-            &format!("{} pull zakuroai/{}:{}", docker(), image, dist_str),
-            Some(false),
-        );
-        common::exec(
-            &format!(
-                "{} tag zakuroai/{}:{} zakuroai/{}:latest",
-                docker(),
-                image,
-                dist_str,
-                image
-            ),
-            Some(false),
+        common::command(
+            &format!("docker pull zakuroai/{}:{} && docker tag zakuroai/{}:{} zakuroai/{}:latest", 
+            image,
+            dist_str,
+            image,
+            dist_str,
+            image),
         );
     }
 }
