@@ -405,7 +405,7 @@ fn kill() {
 
 fn ps() {
     common::exec(
-        &format!("{} ps --filter 'name=zk0*' -a", docker()),
+        &format!("{} ps --filter 'name=zk0*' --filter \"label=maintainer=dev@zakuro.ai\" -a", docker()),
         Some(true),
     );
 }
@@ -449,6 +449,10 @@ fn version()
 );
 }
 }
+fn rmi(){
+    kill();
+    common::command("docker rmi -f $(docker images --filter \"label=maintainer=dev@zakuro.ai\" -a -q)");
+}
 fn help() {
 
     // io::stdout().write_all(s.as_bytes()).unwrap();
@@ -468,6 +472,7 @@ Options:
       kill            Remove current running zakuro containers.
       restart         Restart the containers with updated images.
       wg0ip           Get the IP in the cluster.
+      rmi             Remove zakuro images.
     
 \nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/");
 }
@@ -500,6 +505,7 @@ fn main() {
                 "kill" => kill(),
                 "connect" => connect(),
                 "update" => update(),
+                "rmi" => rmi(),
                 "--version" => version(),
                 "-v" => version(),
                 "vars" => {
