@@ -490,7 +490,7 @@ fn build(image: Option<Vec<String>>){
             d=&_d;
         }        
         let s: String = truncated_vector.join(" ");
-        common::command(&format!("BUILDARCH={} docker compose build {}", d, s));
+        common::command(&format!("BUILDARCH={} BUILDARCHI={} docker compose build {}", d, dist(), s));
     }
 
 }
