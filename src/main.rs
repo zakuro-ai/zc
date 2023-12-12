@@ -43,15 +43,6 @@ fn connect() {
         Ok(mut child) => {
             // Wait for the child process to finish (you can remove this if you want to keep it running)
             let status = child.wait();
-
-            match status {
-                Ok(exit_status) => {
-                    if !exit_status.success() {
-                        eprintln!("Command exited with an error: {:?}", exit_status);
-                    }
-                }
-                Err(e) => eprintln!("Error waiting for command to finish: {}", e),
-            }
         }
         Err(e) => eprintln!("Error spawning command: {}", e),
     }
@@ -236,7 +227,7 @@ pub fn logs(alive: bool) {
 
 fn zk0(command: &str) -> String {
     return exec(
-        &format!("{} exec -i zk0 bash -c '{}'", docker(), command),
+        &format!("{} exec -it zk0 bash -c '{}'", docker(), command),
         Some(true),
     );
 }
@@ -269,13 +260,13 @@ fn nmap_inf() {
         nmap()
     }
 }
-fn zakuro_cli(command: &str, from_docker: bool) -> String {
-    if from_docker {
-        return zk0(&format!("zc {} ", command));
-    } else {
-        return common::exec(&format!("zc {} ", command), Some(true));
-    }
-}
+// fn zakuro_cli(command: &str, from_docker: bool) -> String {
+//     if from_docker {
+//         return zk0(&format!("zc {} ", command));
+//     } else {
+//         return common::exec(&format!("zc {} ", command), Some(true));
+//     }
+// }
 
 fn nodes() {
     let c0 = &format!("{} -sP 10.13.13.0/24 -oG -", envs::nmap());
@@ -478,16 +469,23 @@ fn setup() {
     launch();
 }
 
-fn help() {
-
+fn version()
+{
     if let (Some(short_hash),) = (
         built_info::GIT_COMMIT_HASH_SHORT,
     ) {
-        // io::stdout().write_all(s.as_bytes()).unwrap();
-    println!("\nUsage:  zc version {} built {} [OPTIONS] COMMAND
+    println!("zc version {}, build {}", built_info::PKG_VERSION, short_hash);
+}
+}
+fn help() {
+
+    // io::stdout().write_all(s.as_bytes()).unwrap();
+    println!("\nUsage: zc [OPTIONS] COMMAND
     \nA self-sufficient runtime for zakuro
 Options:
-      --docker        Execute the commands from zk0
+      -d, --docker    Execute the commands from zk0.
+      -v, --version   Get the version of the current command line.
+      -h, --help      Print this help.
     \nCommands:
       connect         Enter zk0 in interactive mode.
       update          Update the command line.
@@ -499,9 +497,9 @@ Options:
       restart         Restart the containers with updated images.
       wg0ip           Get the IP in the cluster.
     
-\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/", built_info::PKG_VERSION, short_hash);
+\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/");
 }
-}
+
 
 fn main() {
 
@@ -510,7 +508,8 @@ fn main() {
         2 => {
             let arg0 = &args[1];
             match &arg0[..] {
-                "help" => help(),
+                "-h" => help(),
+                "--help" => help(),
                 "ps" => ps(),
                 "images" => images(),
                 "nmap" => nmap(),
@@ -529,11 +528,13 @@ fn main() {
                 "kill" => kill(),
                 "connect" => connect(),
                 "update" => update(),
+                "--version" => version(),
+                "-v" => version(),
                 "vars" => {
                     context(None);
                 }
                 _ => {
-                    zakuro_cli(&arg0[..], Path::new("/var/run/docker.sock").exists());
+                    help();
                 }
             }
         }
@@ -544,9 +545,16 @@ fn main() {
                 "--docker" => match &arg1[..] {
                     "rm" => remove_container(),
                     _ => {
-                        zakuro_cli(&arg1[..], true);
+                        zk0(&arg1[..]);
                     }
                 },
+                "-d" => match &arg1[..] {
+                    "rm" => remove_container(),
+                    _ => {
+                        zk0(&arg1[..]);
+                    }
+                },
+                
                 "context" => {
                     context(Some(&arg1[..]));
                 }
