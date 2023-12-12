@@ -15,6 +15,44 @@ mod envs;
 use common::{dist, exec};
 use envs::docker;
 
+use std::process::{Command, Stdio};
+
+fn connect() {
+    // Replace "your_container_id" with the actual ID or name of your Docker container
+    let container_id = "zk0";
+
+    // Run the "docker exec" command to enter the container interactively with a TTY
+    let mut child = Command::new("docker")
+        .arg("exec")
+        .arg("-it")
+        .arg("-e")
+        .arg("TERM=xterm-256color") // Set the terminal type if needed
+        .arg(container_id)
+        .arg("/bin/bash") // Change this to the desired shell inside the container
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn();
+
+    // Check if the command execution was successful
+    match child {
+        Ok(mut child) => {
+            // Wait for the child process to finish (you can remove this if you want to keep it running)
+            let status = child.wait();
+
+            match status {
+                Ok(exit_status) => {
+                    if !exit_status.success() {
+                        eprintln!("Command exited with an error: {:?}", exit_status);
+                    }
+                }
+                Err(e) => eprintln!("Error waiting for command to finish: {}", e),
+            }
+        }
+        Err(e) => eprintln!("Error spawning command: {}", e),
+    }
+}
+
 pub fn logs(alive: bool) {
     fn clean(c: String) -> String {
         let splits: Vec<&str> = c.split_whitespace().collect();
@@ -420,6 +458,7 @@ fn launch() {
     pull();
     kill();
     restart();
+    connect();
 }
 fn setup() {
     download_auth();
@@ -433,6 +472,7 @@ fn help() {
 Options:
       --docker        Execute the commands from zk0
     \nCommands:
+      connect         Enter zk0 in interactive mode.
       pull            Pull updated images.
       images          List zakuro images built on the machine.
       ps              List current running zakuro containers.
@@ -469,6 +509,7 @@ fn main() {
                 "servers" => server_list(),
                 "add_worker" => add_worker(),
                 "kill" => kill(),
+                "connect" => connect(),
                 "vars" => {
                     context(None);
                 }
