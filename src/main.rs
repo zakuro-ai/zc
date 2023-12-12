@@ -14,8 +14,12 @@ mod common;
 mod envs;
 use common::{dist, exec};
 use envs::docker;
-
 use std::process::{Command, Stdio};
+
+// The file `built.rs` was placed there by cargo and `build.rs`
+mod built_info {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
 
 fn connect() {
     // Replace "your_container_id" with the actual ID or name of your Docker container
@@ -444,6 +448,14 @@ fn ps() {
         Some(true),
     );
 }
+
+fn update() {
+    common::exec("curl https://get.zakuro.ai | sh",
+        Some(true),
+    );
+}
+
+
 fn images() {
     common::exec(
         &format!(
@@ -467,12 +479,18 @@ fn setup() {
 }
 
 fn help() {
-    let s = "\nUsage:  zc [OPTIONS] COMMAND
+
+    if let (Some(short_hash),) = (
+        built_info::GIT_COMMIT_HASH_SHORT,
+    ) {
+        // io::stdout().write_all(s.as_bytes()).unwrap();
+    println!("\nUsage:  zc version {} built {} [OPTIONS] COMMAND
     \nA self-sufficient runtime for zakuro
 Options:
       --docker        Execute the commands from zk0
     \nCommands:
       connect         Enter zk0 in interactive mode.
+      update          Update the command line.
       pull            Pull updated images.
       images          List zakuro images built on the machine.
       ps              List current running zakuro containers.
@@ -481,12 +499,12 @@ Options:
       restart         Restart the containers with updated images.
       wg0ip           Get the IP in the cluster.
     
-\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/";
-    // io::stdout().write_all(s.as_bytes()).unwrap();
-    println!("{}", s)
+\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/", built_info::PKG_VERSION, short_hash);
+}
 }
 
 fn main() {
+
     let args: Vec<String> = env::args().collect();
     match args.len() {
         2 => {
@@ -510,6 +528,7 @@ fn main() {
                 "add_worker" => add_worker(),
                 "kill" => kill(),
                 "connect" => connect(),
+                "update" => update(),
                 "vars" => {
                     context(None);
                 }
