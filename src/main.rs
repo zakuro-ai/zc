@@ -475,6 +475,18 @@ fn push(image: Option<&str>){
     ));
     }
 }
+
+fn build(image: Option<Vec<String>>){
+    if let (Some(image_value),) = (
+        image,
+    ) {
+        let truncated_vector: Vec<String> = image_value.into_iter().skip(2).collect();
+
+        let s: String = truncated_vector.join(" ");
+        common::command(&format!("BUILDARCH=aarch64 docker compose build {}", s));
+    }
+
+}
 fn help() {
 
     // io::stdout().write_all(s.as_bytes()).unwrap();
@@ -559,10 +571,24 @@ fn main() {
                 },
                 "context" => {
                     context(Some(&arg1[..]));
+                },
+                "build" => {
+                    build(Some(args));
                 }
                 _ => help(),
             }
         }
-        _ => help(),
+        _ => {
+            let arg0 = &args[1];
+            let arg1 = &args[2];
+            match &arg0[..] {
+            "build" => {
+                build(Some(args));
+            }
+            _ => {
+                help();
+            }
+        }
     }
+}
 }
