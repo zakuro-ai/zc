@@ -350,7 +350,7 @@ fn download_conf() {
                 common::exec(command, Some(true));
             }
             //Download confs
-            for image in vec!["network", "storage", "compute", "node", "hub"] {
+            for image in vec!["network", "storage", "compute", "node", "hub", "default"] {
                 common::exec(
                     &format!(
                         "wget -q 'http://get.zakuro.ai/zk0?config={}' -O {}/{}/{}-zakuro.yml",
