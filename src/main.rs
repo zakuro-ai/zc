@@ -523,85 +523,101 @@ Options:
 
 
 fn main() {
-
-    let args: Vec<String> = env::args().collect();
-    match args.len() {
-        1 => {
-            help();
-        }
-        2 => {
-            let arg0 = &args[1];
-            match &arg0[..] {
-                "-h" => help(),
-                "--help" => help(),
-                "ps" => ps(),
-                "images" => images(),
-                "nmap" => nmap(),
-                "launch" => launch(),
-                "download_conf" => download_conf(),
-                "download_auth" => download_auth(),
-                "setup" => setup(),
-                "pull" => pull(),
-                "nmap_inf" => nmap_inf(),
-                "wg0ip" => wg0ip(),
-                "logs" => logs(true),
-                "nodes" => nodes(),
-                "restart" => restart(),
-                "servers" => server_list(),
-                "add_worker" => add_worker(),
-                "kill" => kill(),
-                "connect" => connect(),
-                "update" => update(),
-                "rmi" => rmi(),
-                "--version" => version(),
-                "-v" => version(),
-                "vars" => {
-                    context(None);
-                }
-                _ => {
-                    help();
-                }
-            }
-        }
-        3 => {
-            let arg0 = &args[1];
-            let arg1 = &args[2];
-            match &arg0[..] {
-                "--docker" => match &arg1[..] {
-                    "rm" => remove_container(),
-                    _ => {
-                        zk0(&arg1[..]);
+    match envs::vars() {
+        Ok(vars) => {
+            if let (Some(zakuro_auth),) = (
+                vars.get("ZAKURO_AUTH"),
+            ){
+                let args: Vec<String> = env::args().collect();
+                match args.len() {
+                    1 => {
+                        help();
                     }
-                },
-                "-d" => match &arg1[..] {
-                    "rm" => remove_container(),
-                    _ => {
-                        zk0(&arg1[..]);
+                    2 => {
+                        let arg0 = &args[1];
+                        match &arg0[..] {
+                            "-h" => help(),
+                            "--help" => help(),
+                            "ps" => ps(),
+                            "images" => images(),
+                            "nmap" => nmap(),
+                            "launch" => launch(),
+                            "download_conf" => download_conf(),
+                            "download_auth" => download_auth(),
+                            "setup" => setup(),
+                            "pull" => pull(),
+                            "nmap_inf" => nmap_inf(),
+                            "wg0ip" => wg0ip(),
+                            "logs" => logs(true),
+                            "nodes" => nodes(),
+                            "restart" => restart(),
+                            "servers" => server_list(),
+                            "add_worker" => add_worker(),
+                            "kill" => kill(),
+                            "connect" => connect(),
+                            "update" => update(),
+                            "rmi" => rmi(),
+                            "--version" => version(),
+                            "-v" => version(),
+                            "vars" => {
+                                context(None);
+                            }
+                            _ => {
+                                help();
+                            }
+                        }
                     }
-                },
-                "push" => {
-                    push(Some(&arg1[..]));
-                },
-                "context" => {
-                    context(Some(&arg1[..]));
-                },
-                "build" => {
-                    build(Some(args));
+                    3 => {
+                        let arg0 = &args[1];
+                        let arg1 = &args[2];
+                        match &arg0[..] {
+                            "--docker" => match &arg1[..] {
+                                "rm" => remove_container(),
+                                _ => {
+                                    zk0(&arg1[..]);
+                                }
+                            },
+                            "-d" => match &arg1[..] {
+                                "rm" => remove_container(),
+                                _ => {
+                                    zk0(&arg1[..]);
+                                }
+                            },
+                            "push" => {
+                                push(Some(&arg1[..]));
+                            },
+                            "context" => {
+                                context(Some(&arg1[..]));
+                            },
+                            "build" => {
+                                build(Some(args));
+                            }
+                            _ => help(),
+                        }
+                    }
+                    _ => {
+                        let arg0 = &args[1];
+                        let arg1 = &args[2];
+                        match &arg0[..] {
+                            "build" => {
+                                build(Some(args));
+                            }
+                            _ => {
+                                help();
+                            }
+                        }
+                    }
                 }
-                _ => help(),
             }
+            else {
+                eprintln!("Oops something bad happened!\n\nYou are missing ZAKURO_AUTH.\nPlease request access and try again.\n");
+                return
+            }
+            
         }
-        _ => {
-            let arg0 = &args[1];
-            let arg1 = &args[2];
-            match &arg0[..] {
-            "build" => {
-                build(Some(args));
-            }
-            _ => {
-                help();
-            }
+        Err(err) => {
+            eprintln!("Error: {}", err);
         }
     }
-}
+
 }
