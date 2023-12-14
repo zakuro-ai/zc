@@ -1,14 +1,14 @@
 use crate::exec;
 use crate::common;
 use crate::envs;
-use std::{env, fs};
+use std::{env};
 
 
 use colored::Colorize;
 
 pub fn rmi(){
     kill();
-    let _ = exec::cmd("docker rmi -f $(docker images --filter \"label=maintainer=dev@zakuro.ai\" -a -q)", None);
+    let _ = exec::tty("docker rmi -f $(docker images --filter \"label=maintainer=dev@zakuro.ai\" -a -q)");
 }
 
 pub fn push(image: Option<&str>){
@@ -32,11 +32,10 @@ pub fn push(image: Option<&str>){
 }
 
 pub fn images() {
-    let _ = exec::cmd(
+    let _ = exec::tty(
         &format!(
             "docker images --filter \"label=maintainer=dev@zakuro.ai\" -a",
-        ),
-        Some(true),
+        )
     );
 }
 
@@ -55,13 +54,12 @@ pub fn kill() {
     if let Ok(ids) = exec::cmd(
         &format!(
             "ids=$(docker ps --filter 'name=zk0*' -a -q);echo $ids",
-        ),
-        None,
+        ), None
     ){
         if ids.len() > 1 {
             for id in ids.split(" ") {
-                let _ = exec::cmd(&format!("docker stop {}", id,), Some(true));
-                let _ = exec::cmd(&format!("docker rm {}", id), Some(true));
+                let _ = exec::tty(&format!("docker stop {}", id,));
+                let _ = exec::tty(&format!("docker rm {}", id));
             }
         }
     }
@@ -111,8 +109,7 @@ pub fn server_list() {
 
 
 pub fn ps() {
-    let _ = exec::cmd(
-        &format!("docker ps --filter --filter \"label=maintainer=dev@zakuro.ai\" -a"),
-        Some(true),
+    let _ = exec::tty(
+        &format!("docker ps --filter \"label=maintainer=dev@zakuro.ai\" -a")
     );
 }

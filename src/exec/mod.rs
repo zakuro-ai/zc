@@ -1,13 +1,13 @@
-use std::io::prelude::*;
+
 use std::process::{Command, Stdio};
 use std::str;
 
-use std::env;
+
 use crate::envs;
 
 pub fn tty(command: &str) {
     // Run command interactively with a TTY
-    let mut child = Command::new("bash")
+    let child = Command::new("bash")
         .arg("-c")
         .arg(envs::eval(command))
         .stdin(Stdio::inherit())
@@ -19,7 +19,7 @@ pub fn tty(command: &str) {
     match child {
         Ok(mut child) => {
             // Wait for the child process to finish (you can remove this if you want to keep it running)
-            let status = child.wait();
+            let _status = child.wait();
         }
         Err(e) => eprintln!("Error spawning command: {}", e),
     }

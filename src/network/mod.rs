@@ -6,7 +6,7 @@ pub fn nmap() {
 }
 
 pub fn nmap_inf() {
-    while true {
+    loop {
         nmap()
     }
 }
