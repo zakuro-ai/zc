@@ -3,19 +3,19 @@ extern crate toml;
 
 
 
-use std::{env, fs};
+use std::{env};
 mod common;
 mod exec;
 mod envs;
 mod manager;
 mod network;
-use common::{dist};
-use std::process::{Command, Stdio};
+
+
 
 
 
 fn update() {
-    let _ = exec::cmd("curl https://get.zakuro.ai/zc | sh", None);
+    let _ = exec::tty("curl https://get.zakuro.ai/zc | sh");
 }
 
 
@@ -58,7 +58,7 @@ Options:
 
 fn main() {
     envs::update();
-    if let (Ok(zakuro_auth),) = (
+    if let (Ok(_zakuro_auth),) = (
         env::var("ZAKURO_AUTH"),
     ){
         let args: Vec<String> = env::args().collect();
@@ -91,7 +91,7 @@ fn main() {
                     "pull" => manager::pull(),
                     "nmap_inf" => network::nmap_inf(),
                     "wg0ip" => network::wg0ip(),
-                    "logs" => common::logs(true),
+                    // "logs" => common::logs(true),
                     "nodes" => manager::nodes(),
                     "restart" => manager::restart(),
                     "servers" => manager::server_list(),
@@ -140,7 +140,7 @@ fn main() {
             }
             _ => {
                 let arg0 = &args[1];
-                let arg1 = &args[2];
+                let _arg1 = &args[2];
                 match &arg0[..] {
                     "build" => {
                         common::build(Some(args));
