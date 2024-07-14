@@ -1,3 +1,4 @@
+#[allow(warnings)]
 use std::str;
 use crate::exec;
 use std::{env, fs};
@@ -9,6 +10,13 @@ use soup::prelude::*;
 use colored::Colorize;
 use std::io::Write;
 use std::rc::Rc;
+
+pub fn print_debug(s: &str) {
+    if cfg!(debug_assertions) {
+        println!("DEBUG: {}", s);
+    }
+}
+
 
 // The file `built.rs` was placed there by cargo and `build.rs`
 mod built_info {
@@ -52,23 +60,37 @@ pub fn build(image: Option<Vec<String>>){
     }
 }
 
-pub fn download_conf() {
+
+fn create_directory(path: &str) -> std::io::Result<()> {
+    let path = Path::new(path);
+    fs::create_dir_all(path)?;
+    Ok(())
+}
+
+pub fn create_directories() {
     envs::update();
-    if let Ok(zakuro_root) = env::var("ZAKURO_HOME") {
+    if let Ok(zakuro_home) = env::var("ZAKURO_HOME") {
         //Create dirs
         for image in vec![
             "config", "network", "storage", "compute", "node", "hub", "lib", "logs", "bin",
         ] {
-            let command = &format!("mkdir -p {}/{}", zakuro_root, image);
-            println!("{}", command);
-            let _ = exec::cmd(command, Some(true));
+            if let Err(e) =  create_directory(&format!("{}/{}", zakuro_home, image)) {
+                eprintln!("Error creating directory: {}", e);
+            }
         }
+    } 
+}
+
+pub fn download_conf() {
+    envs::update();
+    if let Ok(zakuro_home) = env::var("ZAKURO_HOME") {
+        create_directories();
 
         // Download the default config
         let _ = exec::tty(
             &format!(
-                "wget -q 'http://get.zakuro.ai/zk0?config=default' -O {}/default-zakuro.yml",
-                zakuro_root
+                "wget -q 'http://get.zakuro.ai/zk0?config=default' -O {}/default-zakuro.yaml",
+                zakuro_home
             ),
         );
 
@@ -76,36 +98,48 @@ pub fn download_conf() {
         for image in vec!["network", "storage", "compute", "node", "hub"] {
             let _ = exec::tty(
                 &format!(
-                    "wget -q 'http://get.zakuro.ai/zk0?config={}' -O {}/{}/{}-zakuro.yml",
-                    image, zakuro_root, image, image
+                    "wget -q 'http://get.zakuro.ai/zk0?config={}' -O {}/{}/{}-zakuro.yaml",
+                    image, zakuro_home, image, image
                 ),
             );
             let _ = exec::tty(
                 &format!(
                     "wget -q 'http://get.zakuro.ai/zk0?config={}_env' -O {}/{}/.env",
-                    image, zakuro_root, image
+                    image, zakuro_home, image
                 ),
             );
         }
     }
 }
 
+
 pub fn download_auth() {
     envs::update();
-    if let (Ok(zakuro_root), Ok(zakuro_auth)) = (
-        env::var("ZAKURO_CONTEXT"),
+    if let (Ok(zakuro_home), Ok(zakuro_auth)) = (
+        env::var("ZAKURO_HOME"),
         env::var("ZAKURO_AUTH"),
     ) {
-        let command = &format!(
-            "curl -s --location --request GET 'https://get.zakuro.ai/profile' \
-        --header 'Content-Type: application/json' \
-        --data '{{\"pkey\": \"{}\"}}' > {}/config/wg0.conf",
-            zakuro_auth, zakuro_root
-        );
+        if !zakuro_home.is_empty() && !zakuro_auth.is_empty() {
+            println!("{}, {}", zakuro_home, zakuro_auth);
 
-        if let Ok(result) = exec::cmd(command, Some(false)){
-            println!("{}", result);
+            let command = &format!(
+                "curl -s --location 'https://get.zakuro.ai/profile' \
+                --header 'Content-Type: application/json' \
+                --data '{{\"pkey\": \"{}\"}}' > {}/config/wg0.conf",
+                zakuro_auth, zakuro_home
+            );
+
+            match exec::cmd(command, Some(false)) {
+                Ok(result) => { 
+                    print_debug(&format!("{}", &command));
+                }
+                Err(e) => {
+                    eprintln!("Error :{}", e);
+                }
+            }
         }
+    } else {
+        eprintln!("Missing ZAKURO_CONTEXT or ZAKURO_AUTH");
     }
 }
 

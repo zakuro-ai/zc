@@ -1,7 +1,6 @@
+#[allow(warnings)]
 extern crate serde;
 extern crate toml;
-
-
 
 use std::{env};
 mod common;
@@ -9,10 +8,6 @@ mod exec;
 mod envs;
 mod manager;
 mod network;
-
-
-
-
 
 fn update() {
     let _ = exec::tty("curl https://get.zakuro.ai/zc | sh");
@@ -34,7 +29,6 @@ fn setup() {
 
 fn help() {
 
-    // io::stdout().write_all(s.as_bytes()).unwrap();
     println!("\nUsage: zc [OPTIONS] COMMAND
     \nA self-sufficient runtime for zakuro
 Options:
@@ -55,7 +49,28 @@ Options:
     
 \nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/");
 }
-
+/// A self-sufficient runtime for zakuro
+///
+/// Usage: `zc [OPTIONS] COMMAND`
+///
+/// Options:
+///     -d, --docker    Execute the commands from zk0.
+///     -v, --version   Get the version of the current command line.
+///     -h, --help      Print this help.
+///
+/// Commands:
+///     connect         Enter zk0 in interactive mode.
+///     update          Update the command line.
+///     pull            Pull updated images.
+///     images          List zakuro images built on the machine.
+///     ps              List current running zakuro containers.
+///     context <path>  Set new zakuro context.
+///     kill            Remove current running zakuro containers.
+///     restart         Restart the containers with updated images.
+///     wg0ip           Get the IP in the cluster.
+///     rmi             Remove zakuro images.
+///
+/// To get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/
 fn main() {
     envs::update();
     if let (Ok(_zakuro_auth),) = (
@@ -64,7 +79,8 @@ fn main() {
         let args: Vec<String> = env::args().collect();
         match args.len() {
             1 => {
-                help();
+                // help();
+                common::download_auth();
             }
             2 => {
                 let arg0 = &args[1];

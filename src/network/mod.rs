@@ -1,3 +1,4 @@
+#[allow(warnings)]
 use crate::exec;
 pub fn nmap() {
     let c0 = &format!("nmap -sP 10.13.13.0/24 -oG -");

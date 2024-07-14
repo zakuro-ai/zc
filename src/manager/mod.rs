@@ -1,3 +1,4 @@
+#[allow(warnings)]
 use crate::exec;
 use crate::common;
 use crate::envs;
