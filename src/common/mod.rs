@@ -121,7 +121,7 @@ pub fn download_auth() {
     ) {
         if !zakuro_home.is_empty() && !zakuro_auth.is_empty() {
             print_debug(&format!("{}, {}", zakuro_home, zakuro_auth));
-
+            create_directories();
             let command = &format!(
                 "curl -s --location 'https://get.zakuro.ai/profile' \
                 --header 'Content-Type: application/json' \

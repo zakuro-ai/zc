@@ -47,7 +47,7 @@ Options:
       wg0ip           Get the IP in the cluster.
       rmi             Remove zakuro images.
     
-\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/");
+\nTo get more help with docker, check out our guides at https://docs.zakuro.ai/");
 }
 /// A self-sufficient runtime for zakuro
 ///
