@@ -120,7 +120,7 @@ pub fn download_auth() {
         env::var("ZAKURO_AUTH"),
     ) {
         if !zakuro_home.is_empty() && !zakuro_auth.is_empty() {
-            println!("{}, {}", zakuro_home, zakuro_auth);
+            print_debug(&format!("{}, {}", zakuro_home, zakuro_auth));
 
             let command = &format!(
                 "curl -s --location 'https://get.zakuro.ai/profile' \
