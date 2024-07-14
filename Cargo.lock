@@ -1192,7 +1192,7 @@ dependencies = [
 
 [[package]]
 name = "zc2"
-version = "0.0.2-dev"
+version = "0.0.3"
 dependencies = [
  "built",
  "clone",
