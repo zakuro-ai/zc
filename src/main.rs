@@ -79,8 +79,8 @@ fn main() {
         let args: Vec<String> = env::args().collect();
         match args.len() {
             1 => {
-                // help();
-                common::download_auth();
+                help();
+                // common::download_auth();
             }
             2 => {
                 let arg0 = &args[1];

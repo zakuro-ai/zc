@@ -130,7 +130,7 @@ pub fn download_auth() {
             );
 
             match exec::cmd(command, Some(false)) {
-                Ok(result) => { 
+                Ok(_) => { 
                     print_debug(&format!("{}", &command));
                 }
                 Err(e) => {
