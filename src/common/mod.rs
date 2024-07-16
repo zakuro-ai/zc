@@ -26,7 +26,15 @@ mod built_info {
 
 pub fn dist() -> Result<String, String>  {
     if let Ok(dist_value) = exec::cmd("echo $(uname -m)", None){
-        Ok(dist_value)
+        if dist_value=="aarch64"{
+            Ok(String::from("aarch64"))
+        }
+        else if dist_value=="x86_64"{
+            Ok(String::from("amd64"))
+        }
+        else{
+            Ok(String::from("arm64"))
+        }        
     }
     else{
         Err(format!("Couldn't extract dist"))
@@ -44,7 +52,7 @@ pub fn build(image: Option<Vec<String>>){
             d = "aarch64"
         }
         else if &dist_str=="amd64"{
-            d ="x86_64"
+            d ="amd64"
         }
         else{
             d=&dist_str;

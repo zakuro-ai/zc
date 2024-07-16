@@ -10,7 +10,7 @@ pub fn tty(command: &str) {
     print_debug(&command);
     // Run command interactively with a TTY
     let child = Command::new("bash")
-        .arg("-c")
+        .arg("-c") 
         // .arg(envs::eval(command))
         .arg(command)
         .stdin(Stdio::inherit())
