@@ -1,8 +1,8 @@
 ![zakuro Logo](imgs/zakuro-banner.png)
 
-# Zakuro AI Command Line Tool (zc)
-
---------------------------------------------------------------------------------
+<div align="center">
+  <h1>zc</h1>
+</div>
 
 
 <!-- <p align="center">
@@ -22,7 +22,9 @@
 
 ## Overview
 
-`zc` is the Zakuro AI command line tool designed to streamline operations within the Zakuro ecosystem. It provides various commands for managing Docker containers, updating configurations, retrieving cluster information, and more.
+`zc` is the Zakuro AI command line tool designed to streamline operations within the Zakuro ecosystem. This tool acts as an interface for the user between their machine and the rest of the peers connected to it. It is written in Rust, offering several advantages such as performance, safety, and concurrency. 
+
+With `zc`, users can join other clusters, subscribe to projects, and monitor their participation by reading the number of credits accumulated. The tool provides various commands for managing Docker containers, updating configurations, retrieving cluster information, and more.
 
 ## Installation
 
