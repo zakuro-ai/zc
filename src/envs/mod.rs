@@ -9,22 +9,21 @@ use std::env;
 pub static CONFIG_FILE: &str = "/opt/zakuro/etc/profile.d/zk0.sh";
 pub static CONFIG_DIR: &str = "/opt/zakuro/etc/profile.d";
 use std::collections::HashSet;
-use std::collections::HashMap;
 pub fn eval(s1: &str) -> String{
     evaluate_expr(s1)
 }
 use crate::common::print_debug;
 
-fn skip_first_char_if_slash(output: &str) -> Result<String, String> {
-    // Check if the string is long enough to slice
-    if !output.is_empty() && output.starts_with('/') {
-        let result: String = output[1..].to_string();
-        return Ok(result);
-    } else if !output.is_empty() {
-        return Ok(output.to_string());
-    }
-    Err(String::from("String is empty!"))
-}
+// fn skip_first_char_if_slash(output: &str) -> Result<String, String> {
+//     // Check if the string is long enough to slice
+//     if !output.is_empty() && output.starts_with('/') {
+//         let result: String = output[1..].to_string();
+//         return Ok(result);
+//     } else if !output.is_empty() {
+//         return Ok(output.to_string());
+//     }
+//     Err(String::from("String is empty!"))
+// }
 
 
 pub fn evaluate_expr(s1: &str) -> String{

@@ -1,7 +1,9 @@
-
+use std::error::Error as StdError;
 use std::process::{Command, Stdio};
 use std::str;
 
+use std::any::Any;
+use std::fmt::Debug;
 
 use crate::envs;
 use crate::common::print_debug;
@@ -71,6 +73,43 @@ pub fn stdout(command: &str) -> Result<String, String> {
 }
 
 
-pub fn zk0(command: &str) -> Result<String, String> {
-    return cmd(&format!("docker exec -it zk0 bash -c '{}'", command), None);
+// pub fn zk0(command: &str){
+//     let zk0_command = &format!("docker exec -it zk0 bash -c '{}'", command);
+//     let _ = tty(&format!("{}",zk0_command));
+//     // println!("{}", zk0_command);
+//     // return cmd(zk0_command, None);
+// }
+pub fn zk0(last_arg: &str) -> Result<Option<String>, Box<dyn StdError>> {
+    let args = ["exec", "-i", "zk0", "bash", "-c", last_arg];
+    let output = Command::new("docker")
+        .args(args)
+        .output()?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8(output.stdout)?.trim().to_string();
+        Ok(Some(stdout))
+    } else {
+        let stderr = String::from_utf8(output.stderr)?;
+        eprintln!("Error:\n{}", stderr);
+        Ok(None)
+    }
+
+}
+
+
+pub fn execute_fn<T: Debug + Any>(response: Result<T, Box<dyn StdError>>) {
+    match response {
+        Ok(result) => {
+            if let Some(option) = (&result as &dyn Any).downcast_ref::<Option<String>>() {
+                if let Some(value) = option {
+                    println!("{}", value);
+                }
+            } else {
+                println!("Operation successful: {:?}", result);
+            }
+        }
+        Err(err) => {
+            eprintln!("Failed to fetch data: {}", err);
+        }
+    }
 }

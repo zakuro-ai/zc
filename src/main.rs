@@ -2,12 +2,13 @@
 extern crate serde;
 extern crate toml;
 
-use std::{env};
+use std::env;
 mod common;
 mod exec;
 mod envs;
 mod manager;
 mod network;
+
 
 fn update() {
     let _ = exec::tty("curl https://get.zakuro.ai/zc | sh");
@@ -35,43 +36,26 @@ Options:
       -d, --docker    Execute the commands from zk0.
       -v, --version   Get the version of the current command line.
       -h, --help      Print this help.
+
     \nCommands:
       connect         Enter zk0 in interactive mode.
       update          Update the command line.
       pull            Pull updated images.
       images          List zakuro images built on the machine.
       ps              List current running zakuro containers.
-      context <path>  Set new zakuro context.
       kill            Remove current running zakuro containers.
       restart         Restart the containers with updated images.
       wg0ip           Get the IP in the cluster.
       rmi             Remove zakuro images.
+      workers         List all workers connect to the main clusters (10.13.13.2).
+      context <path>  Set new zakuro context | untested.
     
 \nTo get more help with docker, check out our guides at https://docs.zakuro.ai/");
 }
-/// A self-sufficient runtime for zakuro
-///
-/// Usage: `zc [OPTIONS] COMMAND`
-///
-/// Options:
-///     -d, --docker    Execute the commands from zk0.
-///     -v, --version   Get the version of the current command line.
-///     -h, --help      Print this help.
-///
-/// Commands:
-///     connect         Enter zk0 in interactive mode.
-///     update          Update the command line.
-///     pull            Pull updated images.
-///     images          List zakuro images built on the machine.
-///     ps              List current running zakuro containers.
-///     context <path>  Set new zakuro context.
-///     kill            Remove current running zakuro containers.
-///     restart         Restart the containers with updated images.
-///     wg0ip           Get the IP in the cluster.
-///     rmi             Remove zakuro images.
-///
-/// To get more help with docker, check out our guides at https://docs.zakuro.ai/go/guides/
+
+
 fn main() {
+
     envs::update();
     if let (Ok(_zakuro_auth),) = (
         env::var("ZAKURO_AUTH"),
@@ -80,7 +64,6 @@ fn main() {
         match args.len() {
             1 => {
                 help();
-                // common::download_auth();
             }
             2 => {
                 let arg0 = &args[1];
@@ -99,15 +82,15 @@ fn main() {
                         }
                     },
                     "images" => manager::images(),
-                    "nmap" => network::nmap(),
+                    // "nmap" => network::nmap(),
                     "launch" => launch(),
                     "download_conf" => common::download_conf(),
                     "download_auth" => common::download_auth(),
                     "setup" => setup(),
                     "pull" => manager::pull(),
-                    "nmap_inf" => network::nmap_inf(),
-                    "wg0ip" => network::wg0ip(),
-                    // "logs" => common::logs(true),
+                    "workers" => exec::execute_fn(manager::workers()),
+                    "wg0ip" => exec::execute_fn(network::wg0ip(Some(false))),
+                    "logs" => common::logs(true),
                     "nodes" => manager::nodes(),
                     "restart" => manager::restart(),
                     "servers" => manager::server_list(),
@@ -120,9 +103,9 @@ fn main() {
                     "-v" => common::version(),
                     "vars" => {
                         common::context(None);
-                    }
+                    },
                     _ => {
-                        help();
+                        help()
                     }
                 }
             }

@@ -1,0 +1,22 @@
+x-zk0_cnt: &zk0_cnt
+  extends:
+    file: $HOME/.zakuro/default-zakuro.yaml
+    service: zk0_cnt
+
+x-zk0_network: &zk0_network
+  extends:
+    file: $HOME/.zakuro/network/network-zakuro.yaml
+    service: zk0_network
+
+services:
+  zk0_network:
+    <<: *zk0_network
+
+  zc:
+    <<: *zk0_cnt
+    image: zakuroai/zc
+    container_name: zk0
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    user: root

@@ -2,8 +2,11 @@
 use crate::exec;
 use crate::common;
 use crate::envs;
+use crate::network;
 use std::{env};
 
+use std::error::Error as StdError;
+use serde_json::Value;
 
 use colored::Colorize;
 
@@ -83,6 +86,53 @@ pub fn restart() {
         );
     }
         
+}
+
+pub fn workers() -> Result<Option<String>, Box<dyn StdError>> {
+    match network::wg0ip(Some(true)) {
+        Ok(Some(_addr_str)) => {
+            let master_url = "http://10.13.13.2:8080/json";
+            let response: Result<ureq::Response, ureq::Error> = ureq::get(master_url).call();
+        
+            match response {
+                Ok(response) => {
+                    let cluster_info: Value = serde_json::from_reader(response.into_reader())?;
+                    if let Some(workers) = cluster_info.get("workers") {
+                        for worker in workers.as_array().unwrap() {
+                            // println!("Worker ID: {}", worker["id"]);
+                            println!("Host: {}", worker["host"]);
+                            // println!("Port: {}", worker["port"]);
+                            println!("State: {}", worker["state"]);
+                            println!("Memory: {}", worker["memory"]);
+                            println!("Core: {}", worker["cores"]);
+                            println!("--------------------------");
+                        }
+                        return Ok(None);
+                    } else {
+                        println!("No workers found");
+                    }
+                }
+                Err(err) => {
+                    eprintln!("Failed to fetch data: {}", err);
+                }
+            }
+        }
+        Ok(None) => {
+            match  exec::zk0("zc workers"){
+                Ok(result) => {
+                    return Ok(result);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+        Err(err) => {
+            // Handle the error case
+            eprintln!("Failed to fetch data: {}", err);
+        }
+    }
+    Ok(None)
 }
 
 pub fn add_worker() {

@@ -13,10 +13,16 @@ TIMESTAMP:=$(shell date +%Y%m%d-%H%M%S)
 .PHONY: all
 all: build 
 
-.PHONY: build
-build: 
-	cargo build 
+.PHONY: build_zc
+build_zc: 
+	cargo clean && cargo build -j 4 --release && sudo mv target/release/zc2 /usr/local/bin/zc
 
+.PHONY: build
+build: build_zc 
+	docker compose down
+	docker compose build
+	docker compose up -d
+	
 .PHONY: run
 run: build
 	./zc
